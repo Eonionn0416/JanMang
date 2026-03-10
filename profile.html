@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Profile</title>
+  <link rel="stylesheet" href="./css/index.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">My Profile</span>
+    </div>
+
+    <div class="top-right">
+      <div class="auth">
+        <a id="dynamicAuthBtn" class="btn" href="./index.html">Home</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout profile-layout">
+    <section class="feed" aria-label="내 게시물">
+      <article class="card profile-posts-card">
+        <div id="profilePostsKicker" class="section-kicker">My posts</div>
+        <h2 id="profilePostsTitle" class="section-title">내 게시물</h2>
+        <div id="profilePostsDesc" class="card-meta">내가 작성한 게시물과 assign developer에 내 이름이 올라간 게시물을 보여줍니다.</div>
+        <div id="myPostsGrid" class="cards-grid profile-posts-grid"></div>
+      </article>
+    </section>
+
+    <aside class="sidebar" aria-label="프로필 정보">
+      <div class="sidebar-box profile-info-box">
+        <div class="sidebar-title">Profile</div>
+        <div class="profile-info-list">
+          <div class="profile-row"><span class="profile-label">Site</span><span id="pSite" class="profile-value">—</span></div>
+          <div class="profile-row"><span class="profile-label">부서</span><input id="pDept" class="in profile-input" type="text" /></div>
+          <div class="profile-row"><span class="profile-label">Email</span><span id="pEmail" class="profile-value profile-email">—</span></div>
+          <div class="profile-row"><span class="profile-label">이름</span><input id="pName" class="in profile-input" type="text" /></div>
+          <div class="profile-row"><span class="profile-label">ID(사번)</span><span id="pEmpId" class="profile-value">—</span></div>
+          <div class="profile-row"><span class="profile-label">직급</span><input id="pRank" class="in profile-input" type="text" /></div>
+          <div class="profile-row"><span class="profile-label">회원 구분</span><span id="pRole" class="profile-value">—</span></div>
+          <div class="profile-row"><span class="profile-label">등급</span><span id="pTier" class="profile-value">—</span></div>
+          <div class="profile-row"><span class="profile-label">시즌</span><span id="pSeason" class="profile-value">—</span></div>
+        </div>
+
+        <div class="profile-actions">
+          <button id="saveProfileBtn" class="btn" type="button">수정</button>
+          <button id="logoutBtn" class="btn" type="button">Log out</button>
+          <button id="adminBtn" class="btn" type="button" style="display:none;">Admin</button>
+        </div>
+        <div id="profileMsg" class="hint"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="./js/auth-ui.js"></script>
+  <script type="module" src="./js/profile.js"></script>
+</body>
+</html>
