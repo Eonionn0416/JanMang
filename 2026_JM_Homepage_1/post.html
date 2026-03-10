@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Event Detail</title>
+  <link rel="stylesheet" href="./css/index.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-title">Event Detail</span></div>
+    <div class="top-right">
+      <div class="auth">
+        <a class="btn" href="./index.html">Home</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="feed">
+      <div class="cards-grid single-card-grid">
+        <article class="card detail-card">
+          <div class="detail-head">
+            <div>
+              <div id="detailType" class="card-meta">—</div>
+              <h2 id="detailTitle">Loading...</h2>
+            </div>
+            <span id="detailStatus" class="badge">—</span>
+          </div>
+
+          <div class="detail-meta-grid">
+            <div><b>Writer</b>: <span id="detailWriter">—</span></div>
+            <div><b>Updated</b>: <span id="detailUpdated">—</span></div>
+            <div><b>Event Date</b>: <span id="detailEventDate">—</span></div>
+            <div><b>Location</b>: <span id="detailEventLocation">—</span></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Description</h3>
+            <div id="detailDescription" class="detail-box">—</div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Image</h3>
+            <div id="detailImage" class="detail-image-box image-upload-preview empty">No image</div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Attendees</h3>
+            <div id="detailAttendees" class="detail-box">—</div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Attachment</h3>
+            <div id="detailAttachment" class="detail-box">—</div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="sidebar-box menu-box">
+        <div class="sidebar-title">Menu</div>
+        <nav class="menu-list" aria-label="메뉴">
+          <a class="menu-link" href="./request.html">Request</a>
+          <a class="menu-link is-active" href="./event.html">Event</a>
+        </nav>
+      </div>
+    </aside>
+  </main>
+
+  <div id="postMsg" class="hint"></div>
+
+  <script type="module" src="./js/post.js"></script>
+</body>
+</html>
