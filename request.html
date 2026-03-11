@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Request</title>
+  <link rel="stylesheet" href="./css/index.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-title">Request</span></div>
+    <div class="top-right">
+      <div class="auth">
+        <a id="dynamicAuthBtn" class="btn" href="./index.html">Home</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="feed">
+      <div class="cards-grid single-card-grid">
+        <article class="card detail-card">
+          <form id="requestForm" class="request-form">
+            <h2>Request</h2>
+
+            <label for="programName">1. Program name</label>
+            <input id="programName" type="text" placeholder="개발 프로그램 이름 입력" />
+
+            <div class="form-group form-check-grid">
+              <div>2. Input file form</div>
+              <label><input type="checkbox" name="inputForms" value="excel" /> excel</label>
+              <label><input type="checkbox" name="inputForms" value="csv" /> csv</label>
+              <label><input type="checkbox" name="inputForms" value="pptx" /> pptx</label>
+              <label><input type="checkbox" name="inputForms" value="pdf" /> pdf</label>
+            </div>
+
+            <div class="form-group form-check-grid">
+              <div>3. Output file form</div>
+              <label><input type="checkbox" name="outputForms" value="excel" /> excel</label>
+              <label><input type="checkbox" name="outputForms" value="csv" /> csv</label>
+              <label><input type="checkbox" name="outputForms" value="pptx" /> pptx</label>
+              <label><input type="checkbox" name="outputForms" value="pdf" /> pdf</label>
+            </div>
+
+            <label for="description">4. Description</label>
+            <textarea id="description" rows="6" placeholder="요청 기능 설명"></textarea>
+
+            <label for="specificRequest">5. Specific request</label>
+            <textarea id="specificRequest" rows="4" placeholder="추가 요청사항"></textarea>
+
+            <label for="requestAttachment">Attachment</label>
+            <input id="requestAttachment" type="file" />
+            <div id="requestAttachmentPreview" class="attachment-chip-list"></div>
+            <div class="card-meta">ppt, pdf, csv, xlsx, py, java, cpp, html, css 등 첨부 가능</div>
+
+            <label for="requestImage">Image</label>
+            <input id="requestImage" type="file" accept="image/*" />
+            <div id="requestImagePreview" class="image-upload-preview empty">No image selected</div>
+
+            <div class="form-actions">
+              <button id="uploadRequestBtn" class="btn" type="submit">Upload</button>
+            </div>
+
+            <div id="requestMsg" class="hint"></div>
+          </form>
+        </article>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="sidebar-box menu-box">
+        <div class="sidebar-title">Menu</div>
+        <nav class="menu-list" aria-label="메뉴">
+          <a class="menu-link is-active" href="./request.html">Request</a>
+          <a class="menu-link" href="./event.html">Event</a>
+          <a class="menu-link" href="./statistics.html">Statistics</a>
+        </nav>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="./js/auth-ui.js"></script>
+  <script type="module" src="./js/page-auth-required.js"></script>
+  <script type="module" src="./js/request.js"></script>
+</body>
+</html>
