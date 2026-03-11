@@ -1,0 +1,43 @@
+@import url("./common.css");
+
+.page{ padding: 24px; max-width: 980px; margin: 0 auto; }
+
+.toprow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom: 12px;
+}
+
+/* ✅ title 동그라미/테두리 제거 */
+.titletext{
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.panel{
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  min-height: 520px;
+}
+
+.hint{ margin-top: 10px; opacity: .8; font-size: 14px; }
+
+.row{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.row label{ font-weight:700; font-size:14px; opacity:.9; }
+
+.pwwrap{ position:relative; width:100%; }
+.eye{
+  position:absolute; right: 10px; top:50%; transform: translateY(-50%);
+  height: 30px; width: 42px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background:#fff;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }

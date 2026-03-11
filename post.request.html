@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Request Detail</title>
+  <link rel="stylesheet" href="./css/index.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-title">Request Detail</span></div>
+    <div class="top-right">
+      <div class="auth">
+        <a class="btn" href="./index.html">Home</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout detail-layout">
+    <section class="feed">
+      <article class="card detail-card post-request-card">
+        <div class="detail-head request-detail-head">
+          <div>
+            <div id="detailType" class="card-meta">request</div>
+            <h2 id="detailTitle">Loading...</h2>
+          </div>
+          <span id="detailStatus" class="badge">—</span>
+        </div>
+
+        <div class="request-detail-grid">
+          <section class="request-detail-main">
+            <form class="request-form readonly-request-form request-detail-form" onsubmit="return false;">
+              <div class="detail-meta-grid detail-meta-grid-compact">
+                <div><b>Writer</b>: <span id="detailWriter">—</span></div>
+                <div><b>Updated</b>: <span id="detailUpdated">—</span></div>
+                <div><b>Assigned Developer</b>: <span id="detailAssignedDeveloper">—</span></div>
+                <div><b>Finalized At</b>: <span id="detailFinalizedAt">—</span></div>
+              </div>
+
+              <label for="programNameReadonly">1. Program name</label>
+              <input id="programNameReadonly" type="text" disabled />
+
+              <div class="form-group readonly-check-group form-check-grid">
+                <div>2. Input file form</div>
+                <label><input id="input_excel" type="checkbox" disabled /> excel</label>
+                <label><input id="input_csv" type="checkbox" disabled /> csv</label>
+                <label><input id="input_pptx" type="checkbox" disabled /> pptx</label>
+                <label><input id="input_pdf" type="checkbox" disabled /> pdf</label>
+              </div>
+
+              <div class="form-group readonly-check-group form-check-grid">
+                <div>3. Output file form</div>
+                <label><input id="output_excel" type="checkbox" disabled /> excel</label>
+                <label><input id="output_csv" type="checkbox" disabled /> csv</label>
+                <label><input id="output_pptx" type="checkbox" disabled /> pptx</label>
+                <label><input id="output_pdf" type="checkbox" disabled /> pdf</label>
+              </div>
+
+              <label for="descriptionReadonly">4. Description</label>
+              <textarea id="descriptionReadonly" rows="6" disabled></textarea>
+
+              <label for="specificRequestReadonly">5. Specific request</label>
+              <textarea id="specificRequestReadonly" rows="5" disabled></textarea>
+
+            </form>
+          </section>
+
+          <aside class="request-detail-stack">
+            <div class="detail-section stack-panel request-media-panel">
+              <div class="stack-panel-head"><h3>Attachment / Image</h3></div>
+
+              <div class="request-overview-card">
+                <label>Image</label>
+                <div id="detailImage" class="detail-image-box image-upload-preview empty">No image</div>
+
+                <label>Attachment</label>
+                <div id="detailAttachment" class="detail-box">—</div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <section class="detail-section request-activity-section">
+          <div class="stack-panel-head request-activity-head">
+            <h3>Comment / Attachment Stack</h3>
+            <div id="inviteWrap" class="detail-actions invitation-row" hidden>
+              <button id="inviteBtn" class="btn" type="button">Invitation</button>
+            </div>
+          </div>
+
+          <div id="unifiedComposer" class="composer-card composer-disabled request-activity-composer">
+            <div class="composer-grid">
+              <div class="composer-field composer-type-field">
+                <label for="updateType">Type</label>
+                <select id="updateType" disabled>
+                  <option value="presentation">Presentation</option>
+                  <option value="develop">Develop result</option>
+                  <option value="specific-request">Specific request</option>
+                </select>
+              </div>
+
+              <div class="composer-field composer-comment-field">
+                <label for="unifiedComment">Comment</label>
+                <textarea id="unifiedComment" rows="5" placeholder="Comment 없이 attachment만 저장해도 됩니다." disabled></textarea>
+              </div>
+
+              <div class="composer-field composer-attachment-field">
+                <label for="unifiedAttachment">Attachment</label>
+                <input id="unifiedAttachment" type="file" disabled />
+                <div class="card-meta">ppt, pdf, csv, xlsx, py, java, cpp, html, css 등 첨부 가능</div>
+              </div>
+            </div>
+
+            <div class="detail-actions composer-footer-actions">
+              <button id="unifiedSaveBtn" class="btn" type="button" disabled>Save</button>
+              <button id="finalizeBtn" class="btn" type="button" disabled>Finalized</button>
+            </div>
+            <div id="composerHint" class="card-meta">Invitation 이후에 작성할 수 있습니다.</div>
+          </div>
+
+          <div id="timelineList" class="timeline-list compact-timeline"></div>
+          <div id="postMsg" class="hint"></div>
+        </section>
+      </article>
+    </section>
+
+    <aside class="sidebar">
+      <div class="sidebar-box menu-box">
+        <div class="sidebar-title">Menu</div>
+        <nav class="menu-list" aria-label="메뉴">
+          <a class="menu-link" href="./request.html">Request</a>
+          <a class="menu-link" href="./event.html">Event</a>
+        </nav>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="./js/post.request.js"></script>
+</body>
+</html>

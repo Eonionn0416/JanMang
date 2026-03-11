@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Event</title>
+  <link rel="stylesheet" href="./css/index.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-title">Event</span></div>
+    <div class="top-right">
+      <div class="auth">
+        <a id="dynamicAuthBtn" class="btn" href="./index.html">Home</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="feed">
+      <div class="cards-grid single-card-grid">
+        <article class="card detail-card">
+          <form id="eventForm" class="request-form">
+            <h2>Event</h2>
+
+            <label for="eventTitle">Event title</label>
+            <input id="eventTitle" type="text" placeholder="행사 제목" />
+
+            <label for="eventDate">Date</label>
+            <input id="eventDate" type="date" />
+
+            <label for="eventLocation">Location</label>
+            <input id="eventLocation" type="text" placeholder="행사 장소" />
+
+            <label for="eventDescription">Description</label>
+            <textarea id="eventDescription" rows="6" placeholder="행사 설명"></textarea>
+
+            <label for="eventAttendeeSearch">Attendees</label>
+            <div class="attendee-picker">
+              <input id="eventAttendeeSearch" type="text" placeholder="가입된 회원 검색" autocomplete="off" />
+              <div id="eventAttendeePanel" class="member-search-panel attendee-panel" hidden>
+                <div class="member-search-head">
+                  <strong>참석자 선택</strong>
+                  <span class="card-meta">클릭해서 추가</span>
+                </div>
+                <div id="eventAttendeeList" class="member-search-list"></div>
+              </div>
+            </div>
+            <div id="selectedAttendees" class="selected-member-list"></div>
+
+            <label for="eventAttachment">Attachment</label>
+            <input id="eventAttachment" type="file" accept="image/*" />
+            <div id="eventAttachmentPreview" class="attachment-chip-list"></div>
+
+            <div class="form-actions">
+              <button id="uploadEventBtn" class="btn" type="submit">Upload</button>
+            </div>
+
+            <div id="eventMsg" class="hint"></div>
+          </form>
+        </article>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="sidebar-box menu-box">
+        <div class="sidebar-title">Menu</div>
+        <nav class="menu-list" aria-label="메뉴">
+          <a class="menu-link" href="./request.html">Request</a>
+          <a class="menu-link is-active" href="./event.html">Event</a>
+        </nav>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="./js/auth-ui.js"></script>
+  <script type="module" src="./js/page-auth-required.js"></script>
+  <script type="module" src="./js/event.js"></script>
+</body>
+</html>
