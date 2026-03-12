@@ -1,0 +1,50 @@
+body{
+  background: var(--bg);
+}
+
+.manual-layout{
+  align-items:start;
+}
+
+.manual-main{
+  min-width:0;
+}
+
+.manual-page-head{
+  margin-bottom:18px;
+}
+
+.manual-help-text{
+  margin:0;
+  color:var(--muted);
+  line-height:1.6;
+}
+
+.manual-guide-summary{
+  margin-top:14px;
+}
+
+.manual-stack{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+
+.manual-slide-card{
+  padding:18px;
+}
+
+.manual-slide-card img{
+  width:100%;
+  height:auto;
+  display:block;
+  border-radius:18px;
+  border:1px solid var(--line);
+  background:#fff;
+}
+
+@media (max-width: 980px){
+  .manual-layout{
+    grid-template-columns:1fr;
+  }
+}
