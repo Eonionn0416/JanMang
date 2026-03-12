@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import {
@@ -15,6 +16,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-storage.js";
 
 function $(id) { return document.getElementById(id); }
+
+const REQUEST_GUIDE_SLIDES = [2, 3, 4, 5, 6, 7].map((page) => ({
+  page,
+  src: `./assets/manual/slide-${page}.png`,
+  alt: `Request manual page ${page}`,
+}));
+
+const requestGuideModal = $("requestGuideModal");
+const requestGuideConfirmBtn = $("requestGuideConfirmBtn");
+const requestGuidePrevBtn = $("requestGuidePrevBtn");
+const requestGuideNextBtn = $("requestGuideNextBtn");
+const requestGuidePageIndicator = $("requestGuidePageIndicator");
+const requestGuideCurrentImage = $("requestGuideCurrentImage");
+const requestGuideThumbs = $("requestGuideThumbs");
+let currentProfile = null;
+let requestGuideIndex = 0;
 
 function msg(text, isError = false) {
   const el = $("requestMsg");
@@ -114,7 +131,7 @@ async function uploadAttachments(files, folder, programName) {
 async function getCurrentUserProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) {
-    return { name: "", email: "", role: "member", site: "", tier: "QFN" };
+    return { name: "", email: "", role: "member", site: "", tier: "QFN", requestManualSeen: false };
   }
   const u = snap.data();
   return {
@@ -123,10 +140,76 @@ async function getCurrentUserProfile(uid) {
     role: u.role || "member",
     site: u.site || "",
     tier: u.tier || "QFN",
+    requestManualSeen: Boolean(u.requestManualSeen),
   };
 }
 
-async function createNotification(toUid, postId, title, body, postType = "request") {
+function shouldOpenRequestGuideModal() {
+  return Boolean(currentProfile && !currentProfile.requestManualSeen);
+}
+
+function renderRequestGuideThumbs() {
+  if (!requestGuideThumbs) return;
+  requestGuideThumbs.innerHTML = REQUEST_GUIDE_SLIDES.map((slide, index) => `
+    <button class="guide-thumb-btn${index === requestGuideIndex ? " is-active" : ""}" type="button" data-guide-index="${index}" aria-label="Page ${slide.page} 이동">
+      ${slide.page}
+    </button>
+  `).join("");
+}
+
+function renderRequestGuideSlide() {
+  const slide = REQUEST_GUIDE_SLIDES[requestGuideIndex];
+  if (!slide) return;
+  if (requestGuideCurrentImage) {
+    requestGuideCurrentImage.src = slide.src;
+    requestGuideCurrentImage.alt = slide.alt;
+  }
+  if (requestGuidePageIndicator) {
+    requestGuidePageIndicator.textContent = `Page ${slide.page} / ${REQUEST_GUIDE_SLIDES[REQUEST_GUIDE_SLIDES.length - 1].page}`;
+  }
+  if (requestGuidePrevBtn) requestGuidePrevBtn.disabled = requestGuideIndex === 0;
+  if (requestGuideNextBtn) requestGuideNextBtn.disabled = requestGuideIndex === REQUEST_GUIDE_SLIDES.length - 1;
+  renderRequestGuideThumbs();
+}
+
+function moveRequestGuide(delta) {
+  requestGuideIndex = Math.min(REQUEST_GUIDE_SLIDES.length - 1, Math.max(0, requestGuideIndex + delta));
+  renderRequestGuideSlide();
+}
+
+function openRequestGuideModal() {
+  requestGuideIndex = 0;
+  renderRequestGuideSlide();
+  if (requestGuideModal) requestGuideModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeRequestGuideModal() {
+  if (requestGuideModal) requestGuideModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+async function confirmRequestGuideModal() {
+  const user = await whenAuthReady();
+  if (!user) {
+    closeRequestGuideModal();
+    return;
+  }
+  try {
+    await updateDoc(doc(db, "users", user.uid), {
+      requestManualSeen: true,
+      requestManualSeenAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    if (currentProfile) currentProfile.requestManualSeen = true;
+    closeRequestGuideModal();
+  } catch (error) {
+    console.error("request manual confirm error:", error);
+    msg("❌ 매뉴얼 확인 저장에 실패했습니다.", true);
+  }
+}
+
+async function createNotification(toUid, postId, title, body, postType = "request", postOwnerUid = "") {
   if (!toUid) return;
   await addDoc(collection(db, "notifications"), {
     toUid,
@@ -136,6 +219,7 @@ async function createNotification(toUid, postId, title, body, postType = "reques
     body,
     read: false,
     createdAt: serverTimestamp(),
+    postOwnerUid,
   });
 }
 
@@ -146,9 +230,9 @@ async function getUsersByRoles(roles = []) {
     .filter((user) => roles.includes(user.role || "member"));
 }
 
-async function notifyUsers(uids, postId, title, body) {
+async function notifyUsers(uids, postId, title, body, postOwnerUid = "") {
   for (const uid of uniq(uids)) {
-    await createNotification(uid, postId, title, body, "request");
+    await createNotification(uid, postId, title, body, "request", postOwnerUid);
   }
 }
 
@@ -205,6 +289,7 @@ async function submitRequest() {
       requestAttachments: attachments,
       imageUrl: imagePrimary.url || "",
       createdBy: user.uid,
+      authorUid: user.uid,
       createdByEmail: user.email || profile.email || "",
       createdByName: profile.name || "",
       createdByRole: profile.role || "member",
@@ -246,6 +331,15 @@ async function submitRequest() {
   }
 }
 
+async function initializeRequestGuide() {
+  const user = await whenAuthReady();
+  if (!user) return;
+  currentProfile = await getCurrentUserProfile(user.uid);
+  if (shouldOpenRequestGuideModal()) {
+    openRequestGuideModal();
+  }
+}
+
 function bindEvents() {
   $("requestAttachment")?.addEventListener("change", () => renderFilePreview("requestAttachment", "requestAttachmentPreview"));
   $("requestImage")?.addEventListener("change", () => renderImagePreview("requestImage", "requestImagePreview"));
@@ -253,6 +347,21 @@ function bindEvents() {
     e.preventDefault();
     submitRequest();
   });
+  requestGuidePrevBtn?.addEventListener("click", () => moveRequestGuide(-1));
+  requestGuideNextBtn?.addEventListener("click", () => moveRequestGuide(1));
+  requestGuideConfirmBtn?.addEventListener("click", confirmRequestGuideModal);
+  requestGuideThumbs?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-guide-index]");
+    if (!button) return;
+    requestGuideIndex = Number(button.dataset.guideIndex || 0);
+    renderRequestGuideSlide();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (requestGuideModal?.hidden) return;
+    if (event.key === "ArrowLeft") moveRequestGuide(-1);
+    if (event.key === "ArrowRight") moveRequestGuide(1);
+  });
 }
 
 bindEvents();
+initializeRequestGuide().catch((error) => console.error("request guide init error:", error));

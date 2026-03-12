@@ -10,7 +10,9 @@ import {
   getDoc,
   updateDoc,
   addDoc,
+  deleteDoc,
   serverTimestamp,
+  writeBatch,
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const cardsGrid = document.getElementById("cardsGrid");
@@ -25,6 +27,8 @@ const notificationDot = document.getElementById("notificationDot");
 const notificationModal = document.getElementById("notificationModal");
 const closeNotificationBtn = document.getElementById("closeNotificationBtn");
 const notificationList = document.getElementById("notificationList");
+const markAllNotificationsReadBtn = document.getElementById("markAllNotificationsReadBtn");
+const deleteAllNotificationsBtn = document.getElementById("deleteAllNotificationsBtn");
 const directMessageBtn = document.getElementById("directMessageBtn");
 const directMessageDot = document.getElementById("directMessageDot");
 const directMessageModal = document.getElementById("directMessageModal");
@@ -49,6 +53,8 @@ const eventDayModal = document.getElementById("eventDayModal");
 const eventDayModalTitle = document.getElementById("eventDayModalTitle");
 const eventDayModalList = document.getElementById("eventDayModalList");
 const miniCalendar = document.getElementById("miniCalendar");
+const guideModal = document.getElementById("guideModal");
+const guideConfirmBtn = document.getElementById("guideConfirmBtn");
 
 let allItems = [];
 let allUsers = [];
@@ -423,6 +429,40 @@ function renderNextPage() {
   renderedCount += next.length;
 }
 
+
+function shouldOpenGuideModal() {
+  return Boolean(currentUser && currentProfile && !currentProfile.guideSeen);
+}
+
+function openGuideModal() {
+  if (guideModal) guideModal.hidden = false;
+}
+
+function closeGuideModal() {
+  if (guideModal) guideModal.hidden = true;
+}
+
+async function confirmGuideModal() {
+  if (!currentUser) {
+    closeGuideModal();
+    return;
+  }
+  try {
+    await updateDoc(doc(db, "users", currentUser.uid), {
+      guideSeen: true,
+      guideSeenAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    if (currentProfile) {
+      currentProfile.guideSeen = true;
+    }
+    closeGuideModal();
+  } catch (e) {
+    console.error("guide confirm error:", e);
+    alert("가이드 확인 저장에 실패했습니다. 다시 시도해 주세요.");
+  }
+}
+
 async function loadCurrentProfile() {
   if (!currentUser) return;
   try {
@@ -485,6 +525,44 @@ function notificationRoute(item) {
   return `./${item.postType === "event" ? "post.html" : "post.request.html"}?id=${encodeURIComponent(item.postId)}`;
 }
 
+async function markNotificationRead(notificationId) {
+  if (!notificationId) return;
+  await updateDoc(doc(db, "notifications", notificationId), {
+    read: true,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+async function deleteNotificationItem(notificationId) {
+  if (!notificationId) return;
+  await deleteDoc(doc(db, "notifications", notificationId));
+}
+
+async function markAllNotificationsRead() {
+  if (!currentUser) return;
+  const qs = await getDocs(query(collection(db, "notifications"), where("toUid", "==", currentUser.uid)));
+  const unreadDocs = qs.docs.filter((snap) => !snap.data()?.read);
+  if (!unreadDocs.length) return;
+  for (let i = 0; i < unreadDocs.length; i += 500) {
+    const batch = writeBatch(db);
+    unreadDocs.slice(i, i + 500).forEach((snap) => {
+      batch.update(snap.ref, { read: true, updatedAt: serverTimestamp() });
+    });
+    await batch.commit();
+  }
+}
+
+async function deleteAllNotifications() {
+  if (!currentUser) return;
+  const qs = await getDocs(query(collection(db, "notifications"), where("toUid", "==", currentUser.uid)));
+  if (!qs.docs.length) return;
+  for (let i = 0; i < qs.docs.length; i += 500) {
+    const batch = writeBatch(db);
+    qs.docs.slice(i, i + 500).forEach((snap) => batch.delete(snap.ref));
+    await batch.commit();
+  }
+}
+
 async function loadNotifications() {
   if (!currentUser) {
     notificationDot.hidden = true;
@@ -494,7 +572,22 @@ async function loadNotifications() {
 
   try {
     const qs = await getDocs(query(collection(db, "notifications"), where("toUid", "==", currentUser.uid)));
-    const items = qs.docs.map((snap) => ({ id: snap.id, ...snap.data() })).sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    const rawItems = qs.docs.map((snap) => ({ id: snap.id, ...snap.data() }))
+      .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+
+    const postIds = [...new Set(rawItems.filter((item) => item.kind !== "dm" && item.postId).map((item) => item.postId))];
+    const postExistsMap = new Map();
+    await Promise.all(postIds.map(async (postId) => {
+      try {
+        const postSnap = await getDoc(doc(db, "posts", postId));
+        postExistsMap.set(postId, postSnap.exists());
+      } catch (error) {
+        console.warn("notification post existence check failed:", postId, error);
+        postExistsMap.set(postId, true);
+      }
+    }));
+
+    const items = rawItems.filter((item) => item.kind === "dm" || !item.postId || postExistsMap.get(item.postId) !== false);
     notificationDot.hidden = items.filter((x) => !x.read).length === 0;
 
     if (!items.length) {
@@ -504,22 +597,29 @@ async function loadNotifications() {
 
     notificationList.innerHTML = "";
     items.forEach((item) => {
-      const row = document.createElement("button");
-      row.type = "button";
+      const row = document.createElement("div");
       row.className = "notification-item";
       row.dataset.read = item.read ? "true" : "false";
       row.innerHTML = `
-        <div class="notification-item-head">
-          <strong>${escapeHtml(item.title || "알림")}</strong>
-          ${item.read ? "" : `<span class="notif-dot item-dot"></span>`}
+        <button class="notification-main-btn" type="button">
+          <div class="notification-item-head">
+            <strong>${escapeHtml(item.title || "알림")}</strong>
+            ${item.read ? "" : `<span class="notif-dot item-dot"></span>`}
+          </div>
+          <div class="notification-item-body">${escapeHtml(item.body || "")}</div>
+          <div class="notification-item-meta">${escapeHtml(formatDateTime(item.createdAt))}</div>
+        </button>
+        <div class="notification-item-actions">
+          <button class="btn notification-delete-btn" type="button">삭제</button>
         </div>
-        <div class="notification-item-body">${escapeHtml(item.body || "")}</div>
-        <div class="notification-item-meta">${escapeHtml(formatDateTime(item.createdAt))}</div>
       `;
-      row.addEventListener("click", async () => {
+      const mainBtn = row.querySelector(".notification-main-btn");
+      const deleteBtn = row.querySelector(".notification-delete-btn");
+      mainBtn?.addEventListener("click", async () => {
         try {
           if (!item.read) {
-            await updateDoc(doc(db, "notifications", item.id), { read: true, updatedAt: serverTimestamp() });
+            await markNotificationRead(item.id);
+            item.read = true;
             row.dataset.read = "true";
             row.querySelector(".item-dot")?.remove();
             refreshNotificationDotFromDom();
@@ -532,7 +632,28 @@ async function loadNotifications() {
           await openDirectMessageCenter(item.fromUid || item.threadPeerUid || "");
           return;
         }
+        if (item.postId && postExistsMap.get(item.postId) === false) {
+          row.remove();
+          refreshNotificationDotFromDom();
+          return;
+        }
         location.href = notificationRoute(item);
+      });
+      deleteBtn?.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (!confirm("이 알림을 삭제할까요?")) return;
+        try {
+          await deleteNotificationItem(item.id);
+          row.remove();
+          refreshNotificationDotFromDom();
+          if (!notificationList.children.length) {
+            notificationList.innerHTML = `<div class="notification-empty">알림이 없습니다.</div>`;
+            if (notificationDot) notificationDot.hidden = true;
+          }
+        } catch (e) {
+          console.error("notification delete error:", e);
+          alert("알림 삭제에 실패했습니다.");
+        }
       });
       notificationList.appendChild(row);
     });
@@ -554,6 +675,7 @@ async function createNotification(toUid, postId, postType, title, body, extra = 
     body,
     read: false,
     createdAt: serverTimestamp(),
+    postOwnerUid: extra.postOwnerUid || "",
     ...extra,
   });
 }
@@ -564,7 +686,9 @@ async function notifyPostRecipients(item, title, body) {
     .filter((uid, index, arr) => arr.indexOf(uid) === index)
     .filter((uid) => uid !== currentUser?.uid);
   for (const uid of recipients) {
-    await createNotification(uid, item.id, item.type || "request", title, body);
+    await createNotification(uid, item.id, item.type || "request", title, body, {
+      postOwnerUid: item.createdBy || "",
+    });
   }
 }
 
@@ -1001,6 +1125,25 @@ function setupNotificationUI() {
   closeNotificationBtn?.addEventListener("click", () => {
     if (notificationModal) notificationModal.hidden = true;
   });
+  markAllNotificationsReadBtn?.addEventListener("click", async () => {
+    try {
+      await markAllNotificationsRead();
+      await loadNotifications();
+    } catch (error) {
+      console.error("markAllNotificationsRead error:", error);
+      alert("전체 읽음 처리에 실패했습니다.");
+    }
+  });
+  deleteAllNotificationsBtn?.addEventListener("click", async () => {
+    if (!confirm("알림 전체를 삭제할까요?")) return;
+    try {
+      await deleteAllNotifications();
+      await loadNotifications();
+    } catch (error) {
+      console.error("deleteAllNotifications error:", error);
+      alert("전체 알림 삭제에 실패했습니다.");
+    }
+  });
   notificationModal?.addEventListener("click", (e) => {
     if (e.target === notificationModal) notificationModal.hidden = true;
   });
@@ -1069,6 +1212,13 @@ function setupDirectMessageUI() {
   });
 }
 
+function setupGuideModal() {
+  guideConfirmBtn?.addEventListener("click", confirmGuideModal);
+  guideModal?.addEventListener("click", (event) => {
+    if (event.target === guideModal) return;
+  });
+}
+
 function setupCardActions() {
   cardsGrid?.addEventListener("click", async (event) => {
     const likeBtn = event.target.closest("[data-like-post]");
@@ -1118,10 +1268,12 @@ async function init() {
   setupInfiniteScroll();
   setupNotificationUI();
   setupDirectMessageUI();
+  setupGuideModal();
   setupCardActions();
   await Promise.all([loadPosts(), loadNotifications(), loadUsersForSearch(), loadDirectThreads()]);
   clearGrid();
   renderNextPage();
+  if (shouldOpenGuideModal()) openGuideModal();
 }
 
 init();

@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import {
@@ -16,8 +17,23 @@ import {
 
 function $(id) { return document.getElementById(id); }
 
+const EVENT_GUIDE_SLIDES = [8, 9, 10].map((page) => ({
+  page,
+  src: `./assets/manual/slide-${page}.png`,
+  alt: `Event manual page ${page}`,
+}));
+
 const selectedAttendeeMap = new Map();
+const eventGuideModal = $("eventGuideModal");
+const eventGuideConfirmBtn = $("eventGuideConfirmBtn");
+const eventGuidePrevBtn = $("eventGuidePrevBtn");
+const eventGuideNextBtn = $("eventGuideNextBtn");
+const eventGuidePageIndicator = $("eventGuidePageIndicator");
+const eventGuideCurrentImage = $("eventGuideCurrentImage");
+const eventGuideThumbs = $("eventGuideThumbs");
 let allUsers = [];
+let currentProfile = null;
+let eventGuideIndex = 0;
 
 function msg(text, isError = false) {
   const el = $("eventMsg");
@@ -80,7 +96,7 @@ async function uploadAttachments(files, folder, title) {
 async function getCurrentUserProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) {
-    return { name: "", email: "", role: "member", site: "", tier: "QFN" };
+    return { name: "", email: "", role: "member", site: "", tier: "QFN", eventManualSeen: false };
   }
   const u = snap.data();
   return {
@@ -89,7 +105,73 @@ async function getCurrentUserProfile(uid) {
     role: u.role || "member",
     site: u.site || "",
     tier: u.tier || "QFN",
+    eventManualSeen: Boolean(u.eventManualSeen),
   };
+}
+
+function shouldOpenEventGuideModal() {
+  return Boolean(currentProfile && !currentProfile.eventManualSeen);
+}
+
+function renderEventGuideThumbs() {
+  if (!eventGuideThumbs) return;
+  eventGuideThumbs.innerHTML = EVENT_GUIDE_SLIDES.map((slide, index) => `
+    <button class="guide-thumb-btn${index === eventGuideIndex ? " is-active" : ""}" type="button" data-event-guide-index="${index}" aria-label="Page ${slide.page} 이동">
+      ${slide.page}
+    </button>
+  `).join("");
+}
+
+function renderEventGuideSlide() {
+  const slide = EVENT_GUIDE_SLIDES[eventGuideIndex];
+  if (!slide) return;
+  if (eventGuideCurrentImage) {
+    eventGuideCurrentImage.src = slide.src;
+    eventGuideCurrentImage.alt = slide.alt;
+  }
+  if (eventGuidePageIndicator) {
+    eventGuidePageIndicator.textContent = `Page ${slide.page} / ${EVENT_GUIDE_SLIDES[EVENT_GUIDE_SLIDES.length - 1].page}`;
+  }
+  if (eventGuidePrevBtn) eventGuidePrevBtn.disabled = eventGuideIndex === 0;
+  if (eventGuideNextBtn) eventGuideNextBtn.disabled = eventGuideIndex === EVENT_GUIDE_SLIDES.length - 1;
+  renderEventGuideThumbs();
+}
+
+function moveEventGuide(delta) {
+  eventGuideIndex = Math.min(EVENT_GUIDE_SLIDES.length - 1, Math.max(0, eventGuideIndex + delta));
+  renderEventGuideSlide();
+}
+
+function openEventGuideModal() {
+  eventGuideIndex = 0;
+  renderEventGuideSlide();
+  if (eventGuideModal) eventGuideModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeEventGuideModal() {
+  if (eventGuideModal) eventGuideModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+async function confirmEventGuideModal() {
+  const user = await whenAuthReady();
+  if (!user) {
+    closeEventGuideModal();
+    return;
+  }
+  try {
+    await updateDoc(doc(db, "users", user.uid), {
+      eventManualSeen: true,
+      eventManualSeenAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    if (currentProfile) currentProfile.eventManualSeen = true;
+    closeEventGuideModal();
+  } catch (error) {
+    console.error("event manual confirm error:", error);
+    msg("❌ 매뉴얼 확인 저장에 실패했습니다.", true);
+  }
 }
 
 async function loadUsers() {
@@ -206,6 +288,7 @@ async function submitEvent() {
       attachmentDownloadName: attachments[0]?.downloadName || "",
       attachments,
       createdBy: user.uid,
+      authorUid: user.uid,
       createdByEmail: user.email || profile.email || "",
       createdByName: profile.name || "",
       createdByRole: profile.role || "member",
@@ -219,7 +302,7 @@ async function submitEvent() {
       updatedAt: serverTimestamp(),
     };
 
-    const refDoc = await addDoc(collection(db, "posts"), postData);
+    await addDoc(collection(db, "posts"), postData);
     msg("✅ Event 업로드 완료");
     setTimeout(() => {
       location.href = "./index.html";
@@ -232,6 +315,15 @@ async function submitEvent() {
   }
 }
 
+async function initializeEventGuide() {
+  const user = await whenAuthReady();
+  if (!user) return;
+  currentProfile = await getCurrentUserProfile(user.uid);
+  if (shouldOpenEventGuideModal()) {
+    openEventGuideModal();
+  }
+}
+
 function bindEvents() {
   $("eventImage")?.addEventListener("change", () => renderFilePreview("eventImage", "eventImagePreview"));
   $("eventAttachment")?.addEventListener("change", () => renderFilePreview("eventAttachment", "eventAttachmentPreview"));
@@ -240,6 +332,15 @@ function bindEvents() {
   $("eventForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
     submitEvent();
+  });
+  eventGuidePrevBtn?.addEventListener("click", () => moveEventGuide(-1));
+  eventGuideNextBtn?.addEventListener("click", () => moveEventGuide(1));
+  eventGuideConfirmBtn?.addEventListener("click", confirmEventGuideModal);
+  eventGuideThumbs?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-event-guide-index]");
+    if (!button) return;
+    eventGuideIndex = Number(button.dataset.eventGuideIndex || 0);
+    renderEventGuideSlide();
   });
 
   document.addEventListener("click", (event) => {
@@ -268,8 +369,15 @@ function bindEvents() {
       $("eventAttendeePanel").hidden = true;
     }
   });
+
+  document.addEventListener("keydown", (event) => {
+    if (eventGuideModal?.hidden) return;
+    if (event.key === "ArrowLeft") moveEventGuide(-1);
+    if (event.key === "ArrowRight") moveEventGuide(1);
+  });
 }
 
 bindEvents();
 renderSelectedAttendees();
 loadUsers().catch((e) => console.error("event user load error:", e));
+initializeEventGuide().catch((error) => console.error("event guide init error:", error));

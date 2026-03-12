@@ -61,6 +61,7 @@
           <a class="menu-link" id="navRequest" href="./request.html">Request</a>
           <a class="menu-link" id="navEvent" href="./event.html">Event</a>
           <a class="menu-link" id="navStatistics" href="./statistics.html">Statistics</a>
+          <a class="menu-link" href="./manual.html">Manual</a>
         </nav>
       </div>
       <div class="sidebar-box menu-box mini-calendar-box">
@@ -74,7 +75,11 @@
     <div class="modal-card">
       <div class="modal-head">
         <h3>알림센터</h3>
-        <button id="closeNotificationBtn" class="btn" type="button">닫기</button>
+        <div class="modal-head-actions">
+          <button id="markAllNotificationsReadBtn" class="btn" type="button">모두 읽음</button>
+          <button id="deleteAllNotificationsBtn" class="btn" type="button">전체 삭제</button>
+          <button id="closeNotificationBtn" class="btn" type="button">닫기</button>
+        </div>
       </div>
       <div id="notificationList" class="notification-list"></div>
     </div>
@@ -140,6 +145,20 @@
         <button id="closeEventDayModalBtn" class="btn" type="button">닫기</button>
       </div>
       <div id="eventDayModalList" class="member-picker-list"></div>
+    </div>
+  </div>
+
+
+  <div id="guideModal" class="modal-backdrop guide-modal" hidden>
+    <div class="modal-card guide-modal-card" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+      <div class="modal-head">
+        <h3 id="guideModalTitle">JM Homepage 사용 가이드</h3>
+      </div>
+      <p class="guide-modal-desc">처음 1회만 보여지는 안내 화면입니다. 이미지를 확인한 뒤 Confirm 버튼을 눌러 주세요.</p>
+      <img class="guide-modal-image" src="./assets/manual-guide.png" alt="JM Homepage 사용 가이드 이미지" />
+      <div class="guide-modal-actions">
+        <button id="guideConfirmBtn" class="btn" type="button">Confirm</button>
+      </div>
     </div>
   </div>
 

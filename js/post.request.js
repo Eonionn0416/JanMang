@@ -8,6 +8,7 @@ import {
   collection,
   addDoc,
   query,
+  where,
   orderBy,
   getDocs,
   serverTimestamp,
@@ -210,7 +211,7 @@ async function getUsersByRoles(roles = []) {
   return qs.docs.map((snap) => ({ uid: snap.id, ...snap.data() })).filter((user) => roles.includes(user.role || "member"));
 }
 
-async function createNotification(toUid, postId, title, body) {
+async function createNotification(toUid, postId, title, body, postOwnerUid = "") {
   if (!toUid) return;
   await addDoc(collection(db, "notifications"), {
     toUid,
@@ -220,11 +221,12 @@ async function createNotification(toUid, postId, title, body) {
     body,
     read: false,
     createdAt: serverTimestamp(),
+    postOwnerUid,
   });
 }
 
-async function createNotifications(toUids, postId, title, body) {
-  for (const uid of uniq(toUids)) await createNotification(uid, postId, title, body);
+async function createNotifications(toUids, postId, title, body, postOwnerUid = "") {
+  for (const uid of uniq(toUids)) await createNotification(uid, postId, title, body, postOwnerUid);
 }
 
 async function addHistory(postId, type, payload, actorUid, actorName) {
@@ -479,7 +481,7 @@ async function handleFinalize() {
     await updateDoc(doc(db, "posts", currentPostId), { status: "management", finalizedAt: serverTimestamp(), updatedAt: serverTimestamp() });
     await addHistory(currentPostId, "finalize", { text: "Status가 management로 변경되었습니다." }, currentUser.uid, currentProfile.name || currentUser.email || "");
     const admins = await getUsersByRoles(["admin"]);
-    await createNotifications([currentPost.createdBy, ...admins.map((item) => item.uid)], currentPostId, "Finalized", "Developer/Admin이 finalized를 눌러 management 상태로 변경했습니다.");
+    await createNotifications([currentPost.createdBy, ...admins.map((item) => item.uid)], currentPostId, "Finalized", "Developer/Admin이 finalized를 눌러 management 상태로 변경했습니다.", currentPost.createdBy || "");
     await loadPost();
     msg("✅ Finalized 완료");
   } catch (e) {
@@ -505,13 +507,27 @@ function closeImagePreview() {
   if (modal) modal.hidden = true;
 }
 
+async function deleteRelatedNotifications(postId = "") {
+  if (!postId || !currentUser?.uid) return 0;
+  const qs = await getDocs(query(
+    collection(db, "notifications"),
+    where("postId", "==", postId),
+    where("toUid", "==", currentUser.uid)
+  ));
+  await Promise.all(qs.docs.map((snap) => deleteDoc(snap.ref)));
+  return qs.size || 0;
+}
+
 async function handleDeleteRequest() {
   try {
     msg("");
     if (!isOwner()) throw new Error("게시자만 삭제할 수 있습니다.");
-    if (!confirm("이 Request 게시물을 삭제할까요?")) return;
+    if (!confirm("이 Request 게시물을 삭제할까요? 내 알림만 함께 정리됩니다.")) return;
+
+    await deleteRelatedNotifications(currentPostId);
     await deleteDoc(doc(db, "posts", currentPostId));
-    location.href = "./index.html";
+
+    location.href = "./index.html?deleted=" + encodeURIComponent(currentPostId);
   } catch (e) {
     console.error(e);
     msg(`❌ ${e.message || e.code || "삭제 실패"}`, true);

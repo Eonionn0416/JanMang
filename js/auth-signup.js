@@ -77,6 +77,12 @@ $("signupBtn")?.addEventListener("click", async () => {
       lastLoginAt: serverTimestamp(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      guideSeen: false,
+      guideSeenAt: null,
+      requestManualSeen: false,
+      requestManualSeenAt: null,
+      eventManualSeen: false,
+      eventManualSeenAt: null,
     });
 
     await signOut(auth);

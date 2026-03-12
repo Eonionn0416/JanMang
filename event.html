@@ -73,10 +73,37 @@
           <a class="menu-link" href="./request.html">Request</a>
           <a class="menu-link is-active" href="./event.html">Event</a>
           <a class="menu-link" href="./statistics.html">Statistics</a>
+          <a class="menu-link" href="./manual.html">Manual</a>
         </nav>
       </div>
     </aside>
   </main>
+
+  <div id="eventGuideModal" class="modal-backdrop guide-modal" hidden>
+    <div class="modal-card guide-carousel-card" role="dialog" aria-modal="true" aria-labelledby="eventGuideModalTitle">
+      <div class="modal-head guide-carousel-head">
+        <div>
+          <h3 id="eventGuideModalTitle">Event Manual</h3>
+          <p class="guide-carousel-desc">처음 Event 페이지에 들어온 회원에게만 1회 보여집니다. 이미지를 넘겨 보신 뒤 Confirm을 눌러 주세요.</p>
+        </div>
+        <span id="eventGuidePageIndicator" class="guide-carousel-indicator">Page 8 / 10</span>
+      </div>
+
+      <div class="guide-carousel-stage">
+        <button id="eventGuidePrevBtn" class="guide-nav-btn" type="button" aria-label="이전 페이지">‹</button>
+        <div class="guide-carousel-image-wrap">
+          <img id="eventGuideCurrentImage" class="guide-carousel-image" src="./assets/manual/slide-8.png" alt="Event manual page 8" />
+        </div>
+        <button id="eventGuideNextBtn" class="guide-nav-btn" type="button" aria-label="다음 페이지">›</button>
+      </div>
+
+      <div id="eventGuideThumbs" class="guide-carousel-thumbs"></div>
+
+      <div class="guide-modal-actions guide-carousel-actions">
+        <button id="eventGuideConfirmBtn" class="btn" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="./js/auth-ui.js"></script>
   <script type="module" src="./js/page-auth-required.js"></script>
