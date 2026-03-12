@@ -14,6 +14,38 @@ function msg(t){ $("loginMsg").textContent = t || ""; }
 
 const BASE_SEASON_START = new Date(2026, 2, 1); // 2026-03-01
 const SIX_MONTHS = 6;
+const REMEMBER_EMAIL_KEY = "jmRememberedEmail";
+
+function loadRememberedEmail() {
+  const savedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY) || "";
+  const loginIdEl = $("loginId");
+  const rememberEmailEl = $("rememberEmail");
+  if (savedEmail && loginIdEl) loginIdEl.value = savedEmail;
+  if (rememberEmailEl) rememberEmailEl.checked = !!savedEmail;
+}
+
+function persistRememberedEmail(email) {
+  const remember = $("rememberEmail")?.checked;
+  if (remember && email) {
+    localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    return;
+  }
+  localStorage.removeItem(REMEMBER_EMAIL_KEY);
+}
+
+
+loadRememberedEmail();
+
+$("rememberEmail")?.addEventListener("change", () => {
+  const email = $("loginId")?.value.trim().toLowerCase() || "";
+  persistRememberedEmail(email);
+});
+
+$("loginId")?.addEventListener("input", () => {
+  if (!$("rememberEmail")?.checked) return;
+  const email = $("loginId")?.value.trim().toLowerCase() || "";
+  persistRememberedEmail(email);
+});
 
 // 이미 로그인 상태면 바로 이동(선택)
 onAuthStateChanged(auth, (user) => {
@@ -158,6 +190,7 @@ $("loginBtn")?.addEventListener("click", async () => {
   if (!email.includes("@")) return msg("⚠️ 이메일 형식이 아님");
 
   try {
+    persistRememberedEmail(email);
     const cred = await signInWithEmailAndPassword(auth, email, pw);
 
     const updated = await postLoginUpdate(cred.user.uid);

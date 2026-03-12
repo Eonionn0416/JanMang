@@ -50,9 +50,16 @@
   border-radius: var(--radius);
   background: var(--card);
   box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.sidebar{
   position: sticky;
   top: 82px;
-  padding: 16px;
+  align-self: start;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
 }
 
 .menu-box{
@@ -729,7 +736,7 @@
 .image-preview-modal-card{ width:min(960px, 96vw); }
 .image-preview-modal-body{ display:flex; align-items:center; justify-content:center; max-height:72vh; overflow:auto; }
 .image-preview-modal-body img{ width:100%; height:auto; object-fit:contain; border-radius:16px; }
-.mini-calendar-box{ margin-top:14px; }
+.mini-calendar-box{ margin-top:0; }
 .mini-calendar{ display:flex; flex-direction:column; gap:10px; }
 .mini-calendar-head{ font-weight:900; text-align:center; }
 .mini-calendar-weekdays, .mini-calendar-grid{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:6px; }

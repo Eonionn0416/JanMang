@@ -53,6 +53,7 @@ const eventDayModal = document.getElementById("eventDayModal");
 const eventDayModalTitle = document.getElementById("eventDayModalTitle");
 const eventDayModalList = document.getElementById("eventDayModalList");
 const miniCalendar = document.getElementById("miniCalendar");
+let miniCalendarTimerId = null;
 const guideModal = document.getElementById("guideModal");
 const guideConfirmBtn = document.getElementById("guideConfirmBtn");
 
@@ -189,6 +190,20 @@ function formatCalendarKey(value) {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function scheduleMiniCalendarRefresh() {
+  if (miniCalendarTimerId) {
+    clearTimeout(miniCalendarTimerId);
+    miniCalendarTimerId = null;
+  }
+  const now = new Date();
+  const nextRefreshAt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 1, 0, 0);
+  const delay = Math.max(60 * 1000, nextRefreshAt.getTime() - now.getTime());
+  miniCalendarTimerId = window.setTimeout(() => {
+    renderMiniCalendar();
+    scheduleMiniCalendarRefresh();
+  }, delay);
 }
 
 function renderMiniCalendar() {
@@ -504,6 +519,7 @@ async function loadPosts() {
     renderEmpty("게시물을 불러올 수 없습니다. Firestore rules를 확인해 주세요.");
   }
   renderMiniCalendar();
+  scheduleMiniCalendarRefresh();
 }
 
 async function loadUsersForSearch() {
@@ -1196,6 +1212,10 @@ function setupDirectMessageUI() {
   eventDayModal?.addEventListener("click", (e) => {
     if (e.target === eventDayModal) closeEventDayModal();
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") renderMiniCalendar();
+  });
+
   miniCalendar?.addEventListener("click", (event) => {
     const dayBtn = event.target.closest("[data-calendar-date]");
     if (!dayBtn || dayBtn.disabled) return;

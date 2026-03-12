@@ -41,3 +41,18 @@
 }
 
 .actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+
+.remember-row{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-top:16px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.remember-row input{
+  width:16px;
+  height:16px;
+}
