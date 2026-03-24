@@ -252,7 +252,7 @@ async function submitEvent() {
     const eventDate = $("eventDate")?.value || "";
     const eventLocation = $("eventLocation")?.value.trim() || "";
     const description = $("eventDescription")?.value.trim() || "";
-    const imageFiles = getFiles("eventImage").slice(0, 1);
+    const imageFiles = getFiles("eventImage");
     const attachmentFiles = getFiles("eventAttachment");
 
     if (!title) throw new Error("Event title을 입력해 주세요.");

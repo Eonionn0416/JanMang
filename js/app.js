@@ -523,13 +523,27 @@ async function loadPosts() {
 }
 
 async function loadUsersForSearch() {
+  if (!currentUser) {
+    allUsers = [];
+    renderMemberSearchResults();
+    renderMemberPicker();
+    return;
+  }
+
   try {
     const qs = await getDocs(collection(db, "users"));
     allUsers = qs.docs.map((snap) => ({ uid: snap.id, ...snap.data() }));
   } catch (e) {
-    console.error("loadUsersForSearch error:", e);
+    if (e?.code === "permission-denied" || String(e?.message || "").includes("insufficient permissions")) {
+      console.warn("users collection read denied by Firestore rules.");
+    } else {
+      console.error("loadUsersForSearch error:", e);
+    }
     allUsers = [];
   }
+
+  renderMemberSearchResults();
+  renderMemberPicker();
 }
 
 function refreshNotificationDotFromDom() {

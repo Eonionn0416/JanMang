@@ -45,8 +45,24 @@
 
           <div class="detail-section">
             <h3>Image</h3>
-            <div id="detailImage" class="detail-image-box image-upload-preview empty">No image</div>
-            <div id="detailImageDownload" class="detail-box" style="margin-top:10px;">—</div>
+            <div id="detailImage" class="detail-box">—</div>
+            <div id="eventProofSection" class="detail-section nested-image-upload-section" hidden>
+              <div class="meeting-upload-card" style="margin-top:12px;">
+                <label for="eventProofImage" class="meeting-upload-label">Event / Meeting Image</label>
+                <label for="eventProofImage" class="meeting-upload-dropzone">
+                  <div class="meeting-upload-dropzone-title">이미지를 여러 개 선택해 주세요</div>
+                  <div class="meeting-upload-dropzone-sub">event 첨부 이미지 + 추가 업로드 이미지를 한곳에서 관리합니다</div>
+                  <div class="meeting-upload-dropzone-action">파일 선택</div>
+                </label>
+                <input id="eventProofImage" class="meeting-upload-input" type="file" accept="image/*" multiple />
+                <div id="eventProofPreview" class="meeting-upload-preview empty">선택된 이미지가 없습니다.</div>
+                <div class="detail-actions meeting-upload-actions">
+                  <button id="saveEventProofBtn" class="btn" type="button">Save</button>
+                </div>
+                <div class="card-meta">게시자 또는 참석자로 등록된 사람만 저장/변경/삭제할 수 있습니다.</div>
+              </div>
+            </div>
+            <div id="detailMeetingImages" class="detail-box" style="margin-top:12px;">—</div>
           </div>
 
           <div class="detail-section">
@@ -57,21 +73,6 @@
           <div class="detail-section">
             <h3>Attachment</h3>
             <div id="detailAttachment" class="detail-box">—</div>
-          </div>
-          <div id="eventProofSection" class="detail-section" hidden>
-            <h3>Meeting Image Upload</h3>
-            <label for="eventProofImage">Attendance / Meeting Image</label>
-            <input id="eventProofImage" type="file" accept="image/*" multiple />
-            <div id="eventProofPreview" class="attachment-chip-list"></div>
-            <div class="detail-actions" style="margin-top:10px;">
-              <button id="saveEventProofBtn" class="btn" type="button">Save</button>
-            </div>
-            <div class="card-meta">게시자 또는 참석자로 등록된 사람만 저장할 수 있습니다.</div>
-          </div>
-
-          <div class="detail-section">
-            <h3>Meeting Image Gallery</h3>
-            <div id="detailMeetingImages" class="detail-box">—</div>
           </div>
 
         </article>

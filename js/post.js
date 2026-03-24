@@ -70,7 +70,31 @@ function renderImageBox(url, alt = "image") {
 function renderFilePreview(inputId, previewId) {
   const box = $(previewId);
   if (!box) return;
-  box.innerHTML = getFiles(inputId).map((file) => `<span class="attachment-chip">${escapeHtml(file.name)}</span>`).join("");
+  const files = getFiles(inputId);
+  if (!files.length) {
+    box.classList.add("empty");
+    box.innerHTML = "선택된 이미지가 없습니다.";
+    return;
+  }
+  const primaryFile = files[0];
+  const primaryUrl = URL.createObjectURL(primaryFile);
+  box.classList.remove("empty");
+  box.innerHTML = `
+    <div class="meeting-upload-primary-preview">
+      <div class="meeting-upload-primary-head">대표 미리보기 (1번 이미지)</div>
+      <img class="meeting-upload-primary-image" src="${escapeHtml(primaryUrl)}" alt="${escapeHtml(primaryFile.name || "meeting image")}">
+      <div class="meeting-upload-primary-name">${escapeHtml(primaryFile.name || "대표 이미지")}</div>
+    </div>
+    <div class="meeting-upload-file-list">
+      ${files.map((file, index) => `
+        <div class="meeting-upload-file">
+          <span class="meeting-upload-count">${index + 1}</span>
+          <span class="meeting-upload-file-name">${escapeHtml(file.name)}</span>
+          ${index === 0 ? '<span class="meeting-upload-badge">대표</span>' : ''}
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 function getEventReadKey(uid = "guest") { return `read_event_posts_${uid}`; }
 function markEventRead(postId, uid) {
@@ -109,6 +133,33 @@ function normalizeImages(post) {
 function normalizeMeetingImages(post) {
   if (Array.isArray(post?.meetingImages) && post.meetingImages.length) return post.meetingImages;
   return [];
+}
+function mergeEventAndMeetingImages(post) {
+  const result = [];
+  const seen = new Set();
+  [...normalizeImages(post), ...normalizeMeetingImages(post)].forEach((item, index) => {
+    if (!item?.url) return;
+    const key = item.url;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push({
+      ...item,
+      source: index < normalizeImages(post).length ? "event" : "meeting",
+    });
+  });
+  return result;
+}
+function getRepresentativeMeetingIndex(post) {
+  const items = mergeEventAndMeetingImages(post);
+  if (!items.length) return -1;
+  const targetUrl = post?.meetingRepresentativeUrl || post?.imageUrl || "";
+  if (!targetUrl) return 0;
+  const index = items.findIndex((item) => item?.url === targetUrl);
+  return index >= 0 ? index : 0;
+}
+function getRepresentativeMeetingImage(post) {
+  const index = getRepresentativeMeetingIndex(post);
+  return index >= 0 ? mergeEventAndMeetingImages(post)[index] : null;
 }
 function buildNavigationDownloadUrl(url = "", filename = "") {
   try {
@@ -152,19 +203,48 @@ function renderAttendees(items = []) {
     </a>
   `).join("")}</div>`;
 }
-function renderMeetingImages(items = [], updatedAt = null) {
+function renderMeetingImages(post, updatedAt = null) {
+  const items = mergeEventAndMeetingImages(post);
   if (!items.length) return "—";
-  return `<div class="meeting-image-grid">${items.map((item, index) => {
-    const downloadName = item.downloadName || buildDownloadName("meeting_image", item.name || `image_${index + 1}`, updatedAt);
-    return `
-      <div class="meeting-image-card">
-        <img class="detail-preview-image" src="${escapeHtml(item.url || "")}" alt="${escapeHtml(item.name || `meeting image ${index + 1}`)}">
-        <div><b>${escapeHtml(item.name || `Meeting image ${index + 1}`)}</b></div>
-        <div class="card-meta">${escapeHtml(item.uploaderName || item.uploaderEmail || "")}</div>
-        <button class="btn attachment-download-btn" type="button" data-url="${escapeHtml(item.url || "")}" data-filename="${escapeHtml(downloadName)}">Download</button>
+  const representativeIndex = getRepresentativeMeetingIndex(post);
+  const representative = items[representativeIndex] || items[0];
+  const currentIndexUrl = post?.imageUrl || representative?.url || "";
+  return `
+    <div class="meeting-gallery-layout">
+      <div class="meeting-gallery-main">
+        <div class="meeting-gallery-main-head">대표 미리보기</div>
+        <img class="detail-preview-image meeting-gallery-main-image" src="${escapeHtml(representative?.url || "")}" alt="${escapeHtml(representative?.name || "image")}">
+        <div class="meeting-gallery-main-name"><b>${escapeHtml(representative?.name || "Image")}</b></div>
+        <div class="card-meta">대표 이미지 = index 게시물 이미지</div>
+        <div class="card-meta">${escapeHtml(representative?.uploaderName || representative?.uploaderEmail || "")}</div>
       </div>
-    `;
-  }).join("")}</div>`;
+      <div class="meeting-gallery-list">
+        ${items.map((item, index) => {
+          const downloadName = item.downloadName || buildDownloadName("event_image", item.name || `image_${index + 1}`, updatedAt);
+          const isRepresentative = index === representativeIndex;
+          const isIndexImage = currentIndexUrl && item?.url && currentIndexUrl === item.url;
+          return `
+            <div class="meeting-gallery-row">
+              <div class="meeting-gallery-row-text">
+                <div class="meeting-gallery-row-name">
+                  <b>${escapeHtml(item.name || `Image ${index + 1}`)}</b>
+                  ${isRepresentative ? '<span class="meeting-upload-badge">대표</span>' : ''}
+                  ${isIndexImage ? '<span class="meeting-upload-badge secondary">Index</span>' : ''}
+                  ${item.source === "event" ? '<span class="meeting-upload-badge secondary">Event</span>' : '<span class="meeting-upload-badge secondary">Upload</span>'}
+                </div>
+                <div class="card-meta">${escapeHtml(item.uploaderName || item.uploaderEmail || "")}</div>
+              </div>
+              <div class="meeting-gallery-row-actions">
+                <button class="btn btn-ghost set-meeting-representative-btn" type="button" data-meeting-action="representative" data-meeting-index="${index}">대표로 설정</button>
+                <button class="btn attachment-download-btn" type="button" data-url="${escapeHtml(item.url || "")}" data-filename="${escapeHtml(downloadName)}">Download</button>
+                <button class="btn btn-ghost delete-meeting-image-btn" type="button" data-meeting-action="delete" data-meeting-index="${index}">Delete</button>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
 }
 function canUploadMeetingImages(post, user) {
   if (!post || !user) return false;
@@ -217,15 +297,14 @@ async function loadPost() {
   const desc = $("detailDescription");
   if (desc) desc.innerHTML = escapeHtml(data.description || data.body || "—").replaceAll("\n", "<br>");
   const image = $("detailImage");
-  if (image) image.innerHTML = renderImageBox(data.imageUrl, title);
-  const imageDownload = $("detailImageDownload");
-  if (imageDownload) imageDownload.innerHTML = renderAttachmentList(normalizeImages(data), `${title}_image`, data.updatedAt || data.createdAt);
+  const representativeImage = getRepresentativeMeetingImage(data);
+  if (image) image.innerHTML = renderImageBox(representativeImage?.url || data.imageUrl, title);
   const attendees = $("detailAttendees");
   if (attendees) attendees.innerHTML = renderAttendees(data.attendees || []);
   const detailAttachment = $("detailAttachment");
   if (detailAttachment) detailAttachment.innerHTML = renderAttachmentList(normalizeAttachments(data), title, data.updatedAt || data.createdAt);
   const detailMeetingImages = $("detailMeetingImages");
-  if (detailMeetingImages) detailMeetingImages.innerHTML = renderMeetingImages(normalizeMeetingImages(data), data.updatedAt || data.createdAt);
+  if (detailMeetingImages) detailMeetingImages.innerHTML = renderMeetingImages(data, data.updatedAt || data.createdAt);
   const eventProofSection = $("eventProofSection");
   if (eventProofSection) eventProofSection.hidden = !canUploadMeetingImages(data, currentUser);
   const deleteBtn = $("deleteEventBtn");
@@ -262,23 +341,99 @@ async function saveMeetingImages() {
       ...item,
       uploaderUid: currentUser.uid,
       uploaderEmail: currentUser.email || "",
-      uploaderName: currentUser.displayName || "",
+      uploaderName: currentPost.createdBy === currentUser.uid ? (currentPost.createdByName || currentUser.displayName || "") : (currentUser.displayName || ""),
       createdAt: new Date().toISOString(),
+      source: "meeting",
     }));
-    const nextMeetingImages = [...normalizeMeetingImages(currentPost), ...appended];
-    await updateDoc(doc(db, "posts", currentPost.id), {
-      meetingImages: nextMeetingImages,
+    const previousImages = mergeEventAndMeetingImages(currentPost);
+    const nextImages = [...previousImages, ...appended];
+    const first = nextImages[0] || null;
+    const patch = {
+      images: nextImages,
+      meetingImages: nextImages,
       updatedAt: serverTimestamp(),
-    });
+    };
+    if (!currentPost.meetingRepresentativeUrl && first?.url) {
+      patch.meetingRepresentativeUrl = first.url;
+      patch.meetingRepresentativeName = first.name || "";
+    }
+    if (!currentPost.imageUrl && first?.url) {
+      patch.imageUrl = first.url;
+      patch.imageName = first.name || "";
+      patch.imageType = first.type || "image/*";
+      patch.imageSize = first.size || 0;
+      patch.imageDownloadName = first.downloadName || first.name || "";
+    }
+    await updateDoc(doc(db, "posts", currentPost.id), patch);
     $("eventProofImage").value = "";
     renderFilePreview("eventProofImage", "eventProofPreview");
     await loadPost();
-    msg("✅ 모임 이미지 저장 완료");
+    msg("✅ 이미지 저장 완료");
   } catch (e) {
     console.error(e);
     msg(`❌ ${e.message || e.code || "저장 실패"}`, true);
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+async function setMeetingImagePreference(action, index) {
+  try {
+    msg("");
+    if (!currentUser || !currentPost) throw new Error("로그인이 필요합니다.");
+    if (!canUploadMeetingImages(currentPost, currentUser)) throw new Error("게시자 또는 참석자만 변경할 수 있습니다.");
+    const items = mergeEventAndMeetingImages(currentPost);
+    const target = items[index];
+    if (!target) throw new Error("이미지를 찾을 수 없습니다.");
+    const patch = { updatedAt: serverTimestamp() };
+    if (action === "representative") {
+      patch.meetingRepresentativeUrl = target.url || "";
+      patch.meetingRepresentativeName = target.name || "";
+      patch.imageUrl = target.url || "";
+      patch.imageName = target.name || "";
+      patch.imageType = target.type || "image/*";
+      patch.imageSize = target.size || 0;
+      patch.imageDownloadName = target.downloadName || target.name || "";
+    }
+    await updateDoc(doc(db, "posts", currentPost.id), patch);
+    await loadPost();
+    msg("✅ 대표 / Index 이미지 변경 완료");
+  } catch (e) {
+    console.error(e);
+    msg(`❌ ${e.message || e.code || "변경 실패"}`, true);
+  }
+}
+
+async function deleteMeetingImage(index) {
+  try {
+    msg("");
+    if (!currentUser || !currentPost) throw new Error("로그인이 필요합니다.");
+    if (!canUploadMeetingImages(currentPost, currentUser)) throw new Error("게시자 또는 참석자만 삭제할 수 있습니다.");
+    const items = mergeEventAndMeetingImages(currentPost);
+    const target = items[index];
+    if (!target) throw new Error("이미지를 찾을 수 없습니다.");
+    if (!confirm(`이미지를 삭제할까요?
+${target.name || "image"}`)) return;
+    const nextImages = items.filter((_, i) => i !== index);
+    const nextRepresentative = nextImages[0] || null;
+    const patch = {
+      images: nextImages,
+      meetingImages: nextImages,
+      updatedAt: serverTimestamp(),
+      meetingRepresentativeUrl: nextRepresentative?.url || "",
+      meetingRepresentativeName: nextRepresentative?.name || "",
+      imageUrl: nextRepresentative?.url || "",
+      imageName: nextRepresentative?.name || "",
+      imageType: nextRepresentative?.type || "",
+      imageSize: nextRepresentative?.size || 0,
+      imageDownloadName: nextRepresentative?.downloadName || nextRepresentative?.name || "",
+    };
+    await updateDoc(doc(db, "posts", currentPost.id), patch);
+    await loadPost();
+    msg("✅ 이미지 삭제 완료");
+  } catch (e) {
+    console.error(e);
+    msg(`❌ ${e.message || e.code || "삭제 실패"}`, true);
   }
 }
 
@@ -310,6 +465,16 @@ function bindEvents() {
         console.error(e);
         alert("첨부 파일 다운로드에 실패했습니다.");
       }
+      return;
+    }
+
+    const prefBtn = event.target.closest("[data-meeting-action]");
+    if (prefBtn) {
+      event.preventDefault();
+      const action = prefBtn.dataset.meetingAction;
+      const index = Number(prefBtn.dataset.meetingIndex);
+      if (action === "delete") await deleteMeetingImage(index);
+      else await setMeetingImagePreference(action, index);
       return;
     }
 
