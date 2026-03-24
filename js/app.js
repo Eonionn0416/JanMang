@@ -406,7 +406,7 @@ function buildCard(item) {
 
   const title = escapeHtml(item.title || item.programName || "Untitled");
   const body = escapeHtml(item.body || item.description || "").replaceAll("\n", "<br/>");
-  const updated = formatDate(item.updatedAt || item.createdAt);
+  const uploaded = formatDate(item.createdAt || item.updatedAt);
   const badgeText = escapeHtml(statusLabel(item.status, item.type));
   const author = escapeHtml(item.createdByName || item.createdByEmail || "—");
   const imageUrl = item.imageUrl || item.createdByProfileImageUrl || "";
@@ -433,7 +433,7 @@ function buildCard(item) {
       <div class="card-head-title"><div class="card-title">${title}</div>${isEventUnread(item) ? `<span class="event-unread-dot" title="unread"></span>` : ""}</div>
       <span class="badge">${badgeText}</span>
     </div>
-    <div class="card-meta">Updated: ${updated}</div>
+    <div class="card-meta">Upload: ${uploaded}</div>
     <div class="card-meta">Writer: ${author}</div>
     <div class="card-body">${body || "설명이 없습니다."}</div>
     <div class="card-actions">
@@ -574,7 +574,7 @@ async function loadCurrentProfile() {
 
 async function loadPosts() {
   try {
-    const qs = await getDocs(query(collection(db, "posts"), orderBy("updatedAt", "desc")));
+    const qs = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
     allItems = qs.docs.map((docSnap) => {
       const data = docSnap.data();
       return {
@@ -596,6 +596,10 @@ async function loadPosts() {
         updatedAt: data.updatedAt || data.createdAt || null,
         eventDate: data.eventDate || "",
       };
+    }).sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() || new Date(a.createdAt || 0).getTime() || 0;
+      const bTime = b.createdAt?.toMillis?.() || new Date(b.createdAt || 0).getTime() || 0;
+      return bTime - aTime;
     });
   } catch (e) {
     console.error("loadPosts error:", e);
