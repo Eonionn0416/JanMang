@@ -166,6 +166,20 @@ function clearGrid() {
   renderedCount = 0;
 }
 
+function renderLoadingSkeleton(count = PAGE_SIZE) {
+  if (!cardsGrid) return;
+  cardsGrid.innerHTML = Array.from({ length: count }, () => `
+    <article class="card card-skeleton" aria-hidden="true">
+      <div class="card-image skeleton-block"></div>
+      <div class="skeleton-line skeleton-line-lg"></div>
+      <div class="skeleton-line skeleton-line-sm"></div>
+      <div class="skeleton-line skeleton-line-md"></div>
+      <div class="skeleton-line skeleton-line-full"></div>
+    </article>
+  `).join("");
+  renderedCount = 0;
+}
+
 function getMemberSearchRows() {
   const q = (searchInput?.value || "").trim().toLowerCase();
   const favorites = getFavoriteMembers();
@@ -400,8 +414,21 @@ function buildCard(item) {
   const commentsCount = Array.isArray(item.comments) ? item.comments.length : (item.commentsCount || 0);
   const likesCount = Array.isArray(item.likedByUids) ? item.likedByUids.length : (item.likesCount || 0);
 
+  const shouldPrioritizeImage = renderedCount < 3;
+
   card.innerHTML = `
-    ${imageUrl ? `<img class="card-image" src="${escapeHtml(imageUrl)}" alt="${title}">` : `<div class="card-image placeholder">No Image</div>`}
+    ${imageUrl ? `
+      <div class="card-image-wrap is-loading">
+        <img
+          class="card-image"
+          src="${escapeHtml(imageUrl)}"
+          alt="${title}"
+          loading="${shouldPrioritizeImage ? "eager" : "lazy"}"
+          fetchpriority="${shouldPrioritizeImage ? "high" : "low"}"
+          decoding="async"
+        >
+      </div>
+    ` : `<div class="card-image placeholder">No Image</div>`}
     <div class="card-head">
       <div class="card-head-title"><div class="card-title">${title}</div>${isEventUnread(item) ? `<span class="event-unread-dot" title="unread"></span>` : ""}</div>
       <span class="badge">${badgeText}</span>
@@ -421,6 +448,20 @@ function buildCard(item) {
     ${buildCommentsHtml(item)}
   `;
 
+  const imageWrap = card.querySelector(".card-image-wrap");
+  const imageEl = card.querySelector(".card-image-wrap .card-image");
+  if (imageWrap && imageEl) {
+    const markLoaded = () => imageWrap.classList.remove("is-loading");
+    if (imageEl.complete) {
+      requestAnimationFrame(markLoaded);
+    } else {
+      imageEl.addEventListener("load", markLoaded, { once: true });
+      imageEl.addEventListener("error", () => {
+        imageWrap.outerHTML = `<div class="card-image placeholder">No Image</div>`;
+      }, { once: true });
+    }
+  }
+
   card.addEventListener("click", (event) => {
     if (event.target.closest("button") || event.target.closest("textarea")) return;
     location.href = routeForPost(item);
@@ -439,9 +480,32 @@ function renderNextPage() {
     renderEmpty("표시할 게시물이 없습니다.");
     return;
   }
+
   const next = filtered.slice(renderedCount, renderedCount + PAGE_SIZE);
-  next.forEach((item) => cardsGrid.appendChild(buildCard(item)));
+  if (!next.length) return;
+
+  const startIndex = renderedCount;
   renderedCount += next.length;
+
+  let chunkIndex = 0;
+  const CHUNK_SIZE = 3;
+
+  function appendChunk() {
+    const fragment = document.createDocumentFragment();
+    const slice = next.slice(chunkIndex, chunkIndex + CHUNK_SIZE);
+    slice.forEach((item, offset) => {
+      const card = buildCard(item);
+      card.style.setProperty("--enter-delay", `${(startIndex + chunkIndex + offset) * 40}ms`);
+      fragment.appendChild(card);
+    });
+    cardsGrid.appendChild(fragment);
+    chunkIndex += CHUNK_SIZE;
+    if (chunkIndex < next.length) {
+      requestAnimationFrame(appendChunk);
+    }
+  }
+
+  requestAnimationFrame(appendChunk);
 }
 
 

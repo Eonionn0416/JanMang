@@ -52,18 +52,51 @@ function statusLabel(status, type) {
 let currentUid = null;
 let viewingUid = null;
 let isReadonlyView = false;
+const PROFILE_POST_PAGE_SIZE = 8;
 
-function buildPostCard(item) {
+function showPostsSkeleton(count = 4) {
+  const grid = $("myPostsGrid");
+  if (!grid) return;
+  grid.innerHTML = Array.from({ length: count }, (_, index) => `
+    <article class="card card-skeleton" aria-hidden="true" style="--enter-delay:${index * 45}ms">
+      <div class="card-image skeleton-block"></div>
+      <div class="skeleton-line skeleton-line-lg"></div>
+      <div class="skeleton-line skeleton-line-sm"></div>
+      <div class="skeleton-line skeleton-line-md"></div>
+      <div class="skeleton-line skeleton-line-full"></div>
+    </article>
+  `).join("");
+}
+
+function wireCardImageMotion(card) {
+  const wrap = card.querySelector(".card-image-wrap");
+  const img = card.querySelector("img.card-image");
+  if (!wrap || !img) return;
+
+  const finish = () => wrap.classList.remove("is-loading");
+  if (img.complete) {
+    finish();
+    return;
+  }
+  img.addEventListener("load", finish, { once: true });
+  img.addEventListener("error", finish, { once: true });
+}
+
+function buildPostCard(item, index = 0) {
   const card = document.createElement("article");
   card.className = "card";
+  card.style.setProperty("--enter-delay", `${index * 45}ms`);
   const title = escapeHtml(item.title || item.programName || "Untitled");
   const body = escapeHtml(item.body || item.description || "").replaceAll("\n", "<br/>");
   const updated = formatDate(item.updatedAt || item.createdAt);
   const badgeText = escapeHtml(statusLabel(item.status, item.type));
   const author = escapeHtml(item.createdByName || item.createdByEmail || "—");
   const imageUrl = item.imageUrl || item.attachmentUrl || "";
+  const shouldPrioritizeImage = index < 2;
   card.innerHTML = `
-    ${imageUrl ? `<img class="card-image" src="${escapeHtml(imageUrl)}" alt="${title}">` : `<div class="card-image placeholder">${escapeHtml((item.type || "post").toUpperCase())}</div>`}
+    ${imageUrl
+      ? `<div class="card-image-wrap is-loading"><img class="card-image" src="${escapeHtml(imageUrl)}" alt="${title}" loading="${shouldPrioritizeImage ? "eager" : "lazy"}" fetchpriority="${shouldPrioritizeImage ? "high" : "low"}" decoding="async"></div>`
+      : `<div class="card-image placeholder">${escapeHtml((item.type || "post").toUpperCase())}</div>`}
     <div class="card-head">
       <div class="card-title">${title}</div>
       <span class="badge">${badgeText}</span>
@@ -72,6 +105,7 @@ function buildPostCard(item) {
     <div class="card-meta">Writer: ${author}</div>
     <div class="card-body">${body || "설명이 없습니다."}</div>
   `;
+  wireCardImageMotion(card);
   card.addEventListener("click", () => {
     location.href = `./${item.type === "request" ? "post.request.html" : "post.html"}?id=${encodeURIComponent(item.id)}`;
   });
@@ -81,7 +115,7 @@ function buildPostCard(item) {
 function renderEmptyPosts(message) {
   const grid = $("myPostsGrid");
   if (!grid) return;
-  grid.innerHTML = `<article class="card"><div class="card-title">${escapeHtml(message)}</div></article>`;
+  grid.innerHTML = `<article class="card profile-empty-card" style="--enter-delay:0ms"><div class="card-title">${escapeHtml(message)}</div></article>`;
 }
 
 function setReadonlyState(readonly) {
@@ -117,15 +151,29 @@ function setReadonlyState(readonly) {
 async function loadPostsFor(uid) {
   const grid = $("myPostsGrid");
   if (!grid) return;
+  showPostsSkeleton();
   try {
     const qs = await getDocs(query(collection(db, "posts"), orderBy("updatedAt", "desc")));
     const rows = qs.docs.map((snap) => ({ id: snap.id, ...snap.data() })).filter((item) => {
       const assigned = Array.isArray(item.assignedDeveloperUids) ? item.assignedDeveloperUids : [];
       return item.createdBy === uid || assigned.includes(uid);
-    });
+    }).slice(0, PROFILE_POST_PAGE_SIZE);
     if (!rows.length) return renderEmptyPosts("표시할 게시물이 없습니다.");
     grid.innerHTML = "";
-    rows.forEach((item) => grid.appendChild(buildPostCard(item)));
+
+    let cursor = 0;
+    const chunkSize = 2;
+    const appendChunk = () => {
+      const fragment = document.createDocumentFragment();
+      rows.slice(cursor, cursor + chunkSize).forEach((item, offset) => {
+        fragment.appendChild(buildPostCard(item, cursor + offset));
+      });
+      grid.appendChild(fragment);
+      cursor += chunkSize;
+      if (cursor < rows.length) requestAnimationFrame(appendChunk);
+    };
+
+    requestAnimationFrame(appendChunk);
   } catch (e) {
     console.error("loadPostsFor error:", e);
     renderEmptyPosts("게시물을 불러오지 못했습니다.");
@@ -190,8 +238,11 @@ onAuthStateChanged(auth, async (user) => {
     location.href = "./index.html";
     return;
   }
+  document.body.classList.add("profile-is-loading");
+  showPostsSkeleton();
   currentUid = user.uid;
   viewingUid = new URLSearchParams(location.search).get("uid") || user.uid;
   setReadonlyState(viewingUid !== currentUid);
   await loadProfile(viewingUid);
+  document.body.classList.remove("profile-is-loading");
 });
