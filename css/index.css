@@ -1218,3 +1218,60 @@ body.modal-open{ overflow:hidden; }
 body.profile-is-loading .profile-info-box{
   opacity:.88;
 }
+
+
+.modal-backdrop{
+  opacity:0;
+  transition:opacity .24s ease;
+}
+.modal-backdrop:not([hidden]){
+  opacity:1;
+}
+.modal-card{
+  opacity:0;
+  transform:translateY(18px) scale(.985);
+  transition:opacity .28s ease, transform .28s ease;
+}
+.modal-backdrop.is-visible .modal-card,
+.modal-backdrop:not([hidden]) .modal-card{
+  opacity:1;
+  transform:translateY(0) scale(1);
+}
+.modal-backdrop.is-closing{
+  opacity:0;
+}
+.modal-backdrop.is-closing .modal-card{
+  opacity:0;
+  transform:translateY(14px) scale(.985);
+}
+
+.guide-carousel-image-wrap{
+  position:relative;
+}
+.guide-carousel-image{
+  opacity:1;
+  transform:translateX(0) scale(1);
+  transition:opacity .24s ease, transform .24s ease;
+}
+.guide-carousel-image.is-changing-next{
+  opacity:0;
+  transform:translateX(-18px) scale(.985);
+}
+.guide-carousel-image.is-changing-prev{
+  opacity:0;
+  transform:translateX(18px) scale(.985);
+}
+.guide-carousel-image.is-entering-next{
+  animation:guide-image-enter-next .26s ease;
+}
+.guide-carousel-image.is-entering-prev{
+  animation:guide-image-enter-prev .26s ease;
+}
+@keyframes guide-image-enter-next{
+  from{ opacity:0; transform:translateX(18px) scale(.985); }
+  to{ opacity:1; transform:translateX(0) scale(1); }
+}
+@keyframes guide-image-enter-prev{
+  from{ opacity:0; transform:translateX(-18px) scale(.985); }
+  to{ opacity:1; transform:translateX(0) scale(1); }
+}

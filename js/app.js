@@ -509,6 +509,26 @@ function renderNextPage() {
 }
 
 
+
+function openAnimatedModal(modal) {
+  if (!modal) return;
+  modal.hidden = false;
+  modal.classList.remove("is-closing");
+  requestAnimationFrame(() => modal.classList.add("is-visible"));
+  document.body.classList.add("modal-open");
+}
+
+function closeAnimatedModal(modal) {
+  if (!modal) return;
+  modal.classList.remove("is-visible");
+  modal.classList.add("is-closing");
+  window.setTimeout(() => {
+    modal.hidden = true;
+    modal.classList.remove("is-closing");
+  }, 220);
+  document.body.classList.remove("modal-open");
+}
+
 function shouldOpenGuideModal() {
   return Boolean(currentUser && currentProfile && !currentProfile.guideSeen);
 }

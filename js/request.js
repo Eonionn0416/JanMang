@@ -32,6 +32,54 @@ const requestGuideCurrentImage = $("requestGuideCurrentImage");
 const requestGuideThumbs = $("requestGuideThumbs");
 let currentProfile = null;
 let requestGuideIndex = 0;
+let requestGuideAnimating = false;
+
+
+function openAnimatedModal(modal) {
+  if (!modal) return;
+  modal.hidden = false;
+  modal.classList.remove("is-closing");
+  requestAnimationFrame(() => modal.classList.add("is-visible"));
+  document.body.classList.add("modal-open");
+}
+
+function closeAnimatedModal(modal) {
+  if (!modal) return;
+  modal.classList.remove("is-visible");
+  modal.classList.add("is-closing");
+  window.setTimeout(() => {
+    modal.hidden = true;
+    modal.classList.remove("is-closing");
+  }, 220);
+  document.body.classList.remove("modal-open");
+}
+
+function swapGuideSlide(nextIndex, direction = "next") {
+  const slide = REQUEST_GUIDE_SLIDES[nextIndex];
+  if (!slide || !requestGuideCurrentImage || requestGuideAnimating) return;
+  requestGuideAnimating = true;
+  const leaveClass = direction === "prev" ? "is-changing-prev" : "is-changing-next";
+  const enterClass = direction === "prev" ? "is-entering-prev" : "is-entering-next";
+  requestGuideCurrentImage.classList.remove("is-entering-prev", "is-entering-next");
+  requestGuideCurrentImage.classList.add(leaveClass);
+  window.setTimeout(() => {
+    requestGuideIndex = nextIndex;
+    requestGuideCurrentImage.src = slide.src;
+    requestGuideCurrentImage.alt = slide.alt;
+    requestGuideCurrentImage.classList.remove("is-changing-prev", "is-changing-next");
+    requestGuideCurrentImage.classList.add(enterClass);
+    if (requestGuidePageIndicator) {
+      requestGuidePageIndicator.textContent = `Page ${slide.page} / ${REQUEST_GUIDE_SLIDES[REQUEST_GUIDE_SLIDES.length - 1].page}`;
+    }
+    if (requestGuidePrevBtn) requestGuidePrevBtn.disabled = requestGuideIndex === 0;
+    if (requestGuideNextBtn) requestGuideNextBtn.disabled = requestGuideIndex === REQUEST_GUIDE_SLIDES.length - 1;
+    renderRequestGuideThumbs();
+    window.setTimeout(() => {
+      requestGuideCurrentImage.classList.remove(enterClass);
+      requestGuideAnimating = false;
+    }, 260);
+  }, 170);
+}
 
 function msg(text, isError = false) {
   const el = $("requestMsg");
@@ -173,20 +221,19 @@ function renderRequestGuideSlide() {
 }
 
 function moveRequestGuide(delta) {
-  requestGuideIndex = Math.min(REQUEST_GUIDE_SLIDES.length - 1, Math.max(0, requestGuideIndex + delta));
-  renderRequestGuideSlide();
+  const nextIndex = Math.min(REQUEST_GUIDE_SLIDES.length - 1, Math.max(0, requestGuideIndex + delta));
+  if (nextIndex === requestGuideIndex) return;
+  swapGuideSlide(nextIndex, delta < 0 ? "prev" : "next");
 }
 
 function openRequestGuideModal() {
   requestGuideIndex = 0;
   renderRequestGuideSlide();
-  if (requestGuideModal) requestGuideModal.hidden = false;
-  document.body.classList.add("modal-open");
+  openAnimatedModal(requestGuideModal);
 }
 
 function closeRequestGuideModal() {
-  if (requestGuideModal) requestGuideModal.hidden = true;
-  document.body.classList.remove("modal-open");
+  closeAnimatedModal(requestGuideModal);
 }
 
 async function confirmRequestGuideModal() {
@@ -353,8 +400,9 @@ function bindEvents() {
   requestGuideThumbs?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-guide-index]");
     if (!button) return;
-    requestGuideIndex = Number(button.dataset.guideIndex || 0);
-    renderRequestGuideSlide();
+    const nextIndex = Number(button.dataset.guideIndex || 0);
+    if (Number.isNaN(nextIndex) || nextIndex === requestGuideIndex) return;
+    swapGuideSlide(nextIndex, nextIndex < requestGuideIndex ? "prev" : "next");
   });
   document.addEventListener("keydown", (event) => {
     if (requestGuideModal?.hidden) return;

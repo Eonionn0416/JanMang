@@ -34,6 +34,54 @@ const eventGuideThumbs = $("eventGuideThumbs");
 let allUsers = [];
 let currentProfile = null;
 let eventGuideIndex = 0;
+let eventGuideAnimating = false;
+
+
+function openAnimatedModal(modal) {
+  if (!modal) return;
+  modal.hidden = false;
+  modal.classList.remove("is-closing");
+  requestAnimationFrame(() => modal.classList.add("is-visible"));
+  document.body.classList.add("modal-open");
+}
+
+function closeAnimatedModal(modal) {
+  if (!modal) return;
+  modal.classList.remove("is-visible");
+  modal.classList.add("is-closing");
+  window.setTimeout(() => {
+    modal.hidden = true;
+    modal.classList.remove("is-closing");
+  }, 220);
+  document.body.classList.remove("modal-open");
+}
+
+function swapEventGuideSlide(nextIndex, direction = "next") {
+  const slide = EVENT_GUIDE_SLIDES[nextIndex];
+  if (!slide || !eventGuideCurrentImage || eventGuideAnimating) return;
+  eventGuideAnimating = true;
+  const leaveClass = direction === "prev" ? "is-changing-prev" : "is-changing-next";
+  const enterClass = direction === "prev" ? "is-entering-prev" : "is-entering-next";
+  eventGuideCurrentImage.classList.remove("is-entering-prev", "is-entering-next");
+  eventGuideCurrentImage.classList.add(leaveClass);
+  window.setTimeout(() => {
+    eventGuideIndex = nextIndex;
+    eventGuideCurrentImage.src = slide.src;
+    eventGuideCurrentImage.alt = slide.alt;
+    eventGuideCurrentImage.classList.remove("is-changing-prev", "is-changing-next");
+    eventGuideCurrentImage.classList.add(enterClass);
+    if (eventGuidePageIndicator) {
+      eventGuidePageIndicator.textContent = `Page ${slide.page} / ${EVENT_GUIDE_SLIDES[EVENT_GUIDE_SLIDES.length - 1].page}`;
+    }
+    if (eventGuidePrevBtn) eventGuidePrevBtn.disabled = eventGuideIndex === 0;
+    if (eventGuideNextBtn) eventGuideNextBtn.disabled = eventGuideIndex === EVENT_GUIDE_SLIDES.length - 1;
+    renderEventGuideThumbs();
+    window.setTimeout(() => {
+      eventGuideCurrentImage.classList.remove(enterClass);
+      eventGuideAnimating = false;
+    }, 260);
+  }, 170);
+}
 
 function msg(text, isError = false) {
   const el = $("eventMsg");
@@ -138,20 +186,19 @@ function renderEventGuideSlide() {
 }
 
 function moveEventGuide(delta) {
-  eventGuideIndex = Math.min(EVENT_GUIDE_SLIDES.length - 1, Math.max(0, eventGuideIndex + delta));
-  renderEventGuideSlide();
+  const nextIndex = Math.min(EVENT_GUIDE_SLIDES.length - 1, Math.max(0, eventGuideIndex + delta));
+  if (nextIndex === eventGuideIndex) return;
+  swapEventGuideSlide(nextIndex, delta < 0 ? "prev" : "next");
 }
 
 function openEventGuideModal() {
   eventGuideIndex = 0;
   renderEventGuideSlide();
-  if (eventGuideModal) eventGuideModal.hidden = false;
-  document.body.classList.add("modal-open");
+  openAnimatedModal(eventGuideModal);
 }
 
 function closeEventGuideModal() {
-  if (eventGuideModal) eventGuideModal.hidden = true;
-  document.body.classList.remove("modal-open");
+  closeAnimatedModal(eventGuideModal);
 }
 
 async function confirmEventGuideModal() {
@@ -339,8 +386,9 @@ function bindEvents() {
   eventGuideThumbs?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-event-guide-index]");
     if (!button) return;
-    eventGuideIndex = Number(button.dataset.eventGuideIndex || 0);
-    renderEventGuideSlide();
+    const nextIndex = Number(button.dataset.eventGuideIndex || 0);
+    if (Number.isNaN(nextIndex) || nextIndex === eventGuideIndex) return;
+    swapEventGuideSlide(nextIndex, nextIndex < eventGuideIndex ? "prev" : "next");
   });
 
   document.addEventListener("click", (event) => {

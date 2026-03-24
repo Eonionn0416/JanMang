@@ -15,6 +15,7 @@ const statsMessage = document.getElementById("statsMessage");
 const statsSummary = document.getElementById("statsSummary");
 const requestChartMeta = document.getElementById("requestChartMeta");
 const eventChartMeta = document.getElementById("eventChartMeta");
+const statsGrid = document.querySelector(".stats-grid");
 
 const chartEls = {
   requestMonthlyChart: document.getElementById("requestMonthlyChart"),
@@ -27,6 +28,12 @@ const chartEls = {
   memberSeasonCountChart: document.getElementById("memberSeasonCountChart"),
   seasonSignupChart: document.getElementById("seasonSignupChart"),
 };
+
+
+function setStatsLoading(isLoading) {
+  if (!statsGrid) return;
+  statsGrid.classList.toggle("is-loading", isLoading);
+}
 
 const state = {
   currentUser: null,
@@ -391,6 +398,7 @@ function populateFilters() {
 
 async function loadData() {
   statsMessage.textContent = "데이터를 불러오는 중...";
+  setStatsLoading(true);
   const [usersSnap, postsSnap] = await Promise.all([
     getDocs(collection(db, "users")),
     getDocs(collection(db, "posts")),
@@ -426,6 +434,7 @@ async function loadData() {
   populateFilters();
   renderAll();
   statsMessage.textContent = `총 회원 ${state.users.length}명 / 총 게시물 ${state.posts.length}건을 기준으로 집계했습니다.`;
+  window.setTimeout(() => setStatsLoading(false), 140);
 }
 
 async function init() {
@@ -441,5 +450,6 @@ async function init() {
 init().catch((error) => {
   console.error(error);
   statsMessage.textContent = `통계 페이지 로딩 실패: ${error.message || error}`;
+  setStatsLoading(false);
   Object.values(chartEls).forEach((el) => renderEmpty(el, "데이터를 불러오지 못했습니다."));
 });
