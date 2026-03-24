@@ -49,10 +49,16 @@ const memberPickerList = document.getElementById("memberPickerList");
 const likesModal = document.getElementById("likesModal");
 const closeLikesModalBtn = document.getElementById("closeLikesModalBtn");
 const likesModalList = document.getElementById("likesModalList");
+const reactionsModalTitle = document.getElementById("reactionsModalTitle");
+const reactionsCommentList = document.getElementById("reactionsCommentList");
+const reactionsCommentInput = document.getElementById("reactionsCommentInput");
+const reactionsCommentSubmitBtn = document.getElementById("reactionsCommentSubmitBtn");
+const reactionsCommentCancelBtn = document.getElementById("reactionsCommentCancelBtn");
 const eventDayModal = document.getElementById("eventDayModal");
 const eventDayModalTitle = document.getElementById("eventDayModalTitle");
 const eventDayModalList = document.getElementById("eventDayModalList");
 const miniCalendar = document.getElementById("miniCalendar");
+let memberSearchPanelOpen = false;
 let miniCalendarTimerId = null;
 const guideModal = document.getElementById("guideModal");
 const guideConfirmBtn = document.getElementById("guideConfirmBtn");
@@ -67,6 +73,8 @@ let activeThreadId = "";
 let memberPickerMode = "chat";
 let pendingForwardItem = null;
 let currentThreadMessages = [];
+let activeReactionPostId = "";
+let activeReactionEditCommentId = "";
 const PAGE_SIZE = 9;
 
 function escapeHtml(value) {
@@ -258,21 +266,42 @@ function openEventDayModal(dateKey) {
       <div class="card-meta">${escapeHtml(item.eventDate || "")}</div>
     </a>
   `).join("")}</div>` : `<div class="notification-empty">등록된 event가 없습니다.</div>`;
-  eventDayModal.hidden = false;
+  openAnimatedModal(eventDayModal);
 }
 
 function closeEventDayModal() {
-  if (eventDayModal) eventDayModal.hidden = true;
+  closeAnimatedModal(eventDayModal);
+}
+
+function showMemberSearchPanel() {
+  if (!memberSearchPanel) return;
+  memberSearchPanelOpen = true;
+  memberSearchPanel.hidden = false;
+  memberSearchPanel.classList.remove("is-closing");
+  requestAnimationFrame(() => memberSearchPanel.classList.add("is-open"));
+}
+
+function hideMemberSearchPanel() {
+  if (!memberSearchPanel) return;
+  memberSearchPanelOpen = false;
+  memberSearchPanel.classList.remove("is-open");
+  memberSearchPanel.classList.add("is-closing");
+  window.setTimeout(() => {
+    if (!memberSearchPanelOpen) {
+      memberSearchPanel.hidden = true;
+      memberSearchPanel.classList.remove("is-closing");
+    }
+  }, 180);
 }
 
 function renderMemberSearchResults() {
   if (!memberSearchPanel || !memberSearchList) return;
   if (!allUsers.length) {
-    memberSearchPanel.hidden = true;
+    hideMemberSearchPanel();
     return;
   }
   const rows = getMemberSearchRows();
-  memberSearchPanel.hidden = false;
+  if (memberSearchPanelOpen) showMemberSearchPanel(); else memberSearchPanel.hidden = true;
   if (!rows.length) {
     memberSearchList.innerHTML = `<div class="member-search-item"><div class="member-main"><div class="member-name">검색 결과 없음</div><div class="member-sub">회원이 없습니다.</div></div></div>`;
     return;
@@ -289,25 +318,93 @@ function renderMemberSearchResults() {
   `).join("");
 }
 
-function openLikesModal(postId) {
+function buildLikesListHtml(item) {
+  const rows = (Array.isArray(item?.likedByUids) ? item.likedByUids : [])
+    .map((uid) => getUserByUid(uid))
+    .filter(Boolean);
+
+  return rows.length
+    ? rows.map((user) => `
+      <a class="member-picker-row" href="./profile.html?uid=${encodeURIComponent(user.uid || "")}">
+        <div class="member-picker-name">${escapeHtml(getUserLabel(user))}</div>
+        <div class="member-picker-sub">${escapeHtml(user.email || "")}</div>
+      </a>
+    `).join("")
+    : `<div class="notification-empty">아직 좋아요를 누른 사람이 없습니다.</div>`;
+}
+
+function buildReactionCommentsHtml(item) {
+  const comments = Array.isArray(item?.comments) ? item.comments : [];
+  const rows = comments.slice().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return rows.length
+    ? rows.map((comment) => {
+      const mine = Boolean(currentUser?.uid && comment.uid === currentUser.uid);
+      const editedLabel = comment.updatedAt ? ' · 수정됨' : '';
+      return `
+      <div class="comment-item ${mine ? "is-mine" : ""}">
+        <div class="comment-meta">${escapeHtml(comment.name || "회원")} · ${escapeHtml(formatDateTime(comment.updatedAt || comment.createdAt))}${editedLabel}</div>
+        <div class="comment-text">${escapeHtml(comment.text || "").replaceAll("\n", "<br>")}</div>
+        ${mine ? `
+        <div class="comment-actions">
+          <button class="btn ghost-btn comment-action-btn" type="button" data-edit-comment="${escapeHtml(comment.id || "")}">수정</button>
+          <button class="btn danger-btn comment-action-btn" type="button" data-delete-comment="${escapeHtml(comment.id || "")}">삭제</button>
+        </div>` : ""}
+      </div>`;
+    }).join("")
+    : `<div class="comment-item">아직 댓글이 없습니다.</div>`;
+}
+
+function resetReactionCommentComposer() {
+  activeReactionEditCommentId = "";
+  if (reactionsCommentInput) {
+    reactionsCommentInput.value = "";
+    reactionsCommentInput.placeholder = "댓글 입력";
+  }
+  if (reactionsCommentSubmitBtn) {
+    reactionsCommentSubmitBtn.textContent = "등록";
+  }
+  if (reactionsCommentCancelBtn) {
+    reactionsCommentCancelBtn.hidden = true;
+  }
+}
+
+function renderReactionsModal(postId) {
   const item = allItems.find((row) => row.id === postId);
-  if (!item || !likesModal || !likesModalList) return;
-  const rows = (Array.isArray(item.likedByUids) ? item.likedByUids : []).map((uid) => getUserByUid(uid)).filter(Boolean);
-  likesModalList.innerHTML = rows.length ? rows.map((user) => `
-    <a class="member-picker-row" href="./profile.html?uid=${encodeURIComponent(user.uid || "")}">
-      <div class="member-picker-name">${escapeHtml(getUserLabel(user))}</div>
-      <div class="member-picker-sub">${escapeHtml(user.email || "")}</div>
-    </a>
-  `).join("") : `<div class="notification-empty">아직 좋아요를 누른 사람이 없습니다.</div>`;
-  likesModal.hidden = false;
+  if (!item || !likesModal || !likesModalList || !reactionsCommentList) return;
+  activeReactionPostId = postId;
+  if (reactionsModalTitle) {
+    reactionsModalTitle.textContent = `${item.title || item.programName || "Untitled"} · 좋아요 / 댓글`;
+  }
+  likesModalList.innerHTML = buildLikesListHtml(item);
+  reactionsCommentList.innerHTML = buildReactionCommentsHtml(item);
+  if (reactionsCommentInput) {
+    reactionsCommentInput.dataset.commentInput = postId;
+  }
+  if (reactionsCommentSubmitBtn) {
+    reactionsCommentSubmitBtn.dataset.commentPost = postId;
+  }
+  if (!activeReactionEditCommentId) {
+    resetReactionCommentComposer();
+    if (reactionsCommentInput) reactionsCommentInput.dataset.commentInput = postId;
+    if (reactionsCommentSubmitBtn) reactionsCommentSubmitBtn.dataset.commentPost = postId;
+  }
+}
+
+function openLikesModal(postId) {
+  renderReactionsModal(postId);
+  openAnimatedModal(likesModal);
 }
 
 function closeLikesModal() {
-  if (likesModal) likesModal.hidden = true;
-}
-
-function hideMemberSearchPanel() {
-  if (memberSearchPanel) memberSearchPanel.hidden = true;
+  activeReactionPostId = "";
+  resetReactionCommentComposer();
+  if (reactionsCommentInput) {
+    delete reactionsCommentInput.dataset.commentInput;
+  }
+  if (reactionsCommentSubmitBtn) {
+    delete reactionsCommentSubmitBtn.dataset.commentPost;
+  }
+  closeAnimatedModal(likesModal);
 }
 
 function routeForPost(item) {
@@ -375,28 +472,6 @@ function isThreadUnread(thread) {
   return lastAt > readAt;
 }
 
-function buildCommentsHtml(item) {
-  const comments = Array.isArray(item.comments) ? item.comments : [];
-  const rows = comments.slice().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  const listHtml = rows.length
-    ? rows.map((comment) => `
-        <div class="comment-item">
-          <div class="comment-meta">${escapeHtml(comment.name || "회원")} · ${escapeHtml(formatDateTime(comment.createdAt))}</div>
-          <div>${escapeHtml(comment.text || "").replaceAll("\n", "<br>")}</div>
-        </div>
-      `).join("")
-    : `<div class="comment-item">아직 댓글이 없습니다.</div>`;
-
-  return `
-    <div class="comment-panel" hidden>
-      <div class="comment-list">${listHtml}</div>
-      <div class="comment-form">
-        <textarea data-comment-input="${escapeHtml(item.id)}" placeholder="댓글 입력"></textarea>
-        <button class="btn add-comment-btn" type="button" data-comment-post="${escapeHtml(item.id)}">등록</button>
-      </div>
-    </div>
-  `;
-}
 
 function buildCard(item) {
   const card = document.createElement("article");
@@ -439,13 +514,11 @@ function buildCard(item) {
     <div class="card-actions">
       <div class="reaction-bar">
         <button class="icon-btn like-btn ${liked ? "is-liked" : ""}" type="button" data-like-post="${escapeHtml(item.id)}">❤ ${likesCount}</button>
-        <button class="icon-btn" type="button" data-show-likes="${escapeHtml(item.id)}">❤ list</button>
-        <button class="icon-btn toggle-comments-btn" type="button" data-toggle-comments="${escapeHtml(item.id)}">댓글 ${commentsCount}</button>
+        <button class="icon-btn reaction-summary-btn" type="button" data-show-reactions="${escapeHtml(item.id)}">❤ ${likesCount} · 댓글 ${commentsCount}</button>
         <button class="icon-btn forward-btn" type="button" data-forward-post="${escapeHtml(item.id)}">Forward</button>
       </div>
       <div class="comment-toggle">상세 보기</div>
     </div>
-    ${buildCommentsHtml(item)}
   `;
 
   const imageWrap = card.querySelector(".card-image-wrap");
@@ -534,11 +607,11 @@ function shouldOpenGuideModal() {
 }
 
 function openGuideModal() {
-  if (guideModal) guideModal.hidden = false;
+  openAnimatedModal(guideModal);
 }
 
 function closeGuideModal() {
-  if (guideModal) guideModal.hidden = true;
+  closeAnimatedModal(guideModal);
 }
 
 async function confirmGuideModal() {
@@ -746,7 +819,7 @@ async function loadNotifications() {
           console.error("notification read error:", e);
         }
         if (item.kind === "dm") {
-          notificationModal.hidden = true;
+          closeAnimatedModal(notificationModal);
           await openDirectMessageCenter(item.fromUid || item.threadPeerUid || "");
           return;
         }
@@ -831,6 +904,7 @@ async function toggleLike(postId) {
   }
   clearGrid();
   renderNextPage();
+  if (activeReactionPostId === postId) renderReactionsModal(postId);
 }
 
 async function addComment(postId) {
@@ -845,22 +919,96 @@ async function addComment(postId) {
   const item = allItems.find((row) => row.id === postId);
   if (!item) return;
   const comments = Array.isArray(item.comments) ? [...item.comments] : [];
-  comments.push({
-    id: `${Date.now()}`,
-    uid: currentUser.uid,
-    name: getProfileName(),
-    text,
-    createdAt: new Date().toISOString(),
-  });
+  const editId = activeReactionEditCommentId;
+  const nowIso = new Date().toISOString();
+
+  if (editId) {
+    const target = comments.find((comment) => comment.id === editId);
+    if (!target) {
+      resetReactionCommentComposer();
+      return alert("수정할 댓글을 찾지 못했습니다.");
+    }
+    if (target.uid !== currentUser.uid) return alert("본인 댓글만 수정할 수 있습니다.");
+    target.text = text;
+    target.updatedAt = nowIso;
+  } else {
+    comments.push({
+      id: `${Date.now()}`,
+      uid: currentUser.uid,
+      name: getProfileName(),
+      text,
+      createdAt: nowIso,
+    });
+  }
+
   await updateDoc(doc(db, "posts", postId), {
     comments,
     commentsCount: comments.length,
     updatedAt: serverTimestamp(),
   });
   item.comments = comments;
-  await notifyPostRecipients(item, "댓글 알림", `${getProfileName()}님이 게시물(${item.title || item.programName || "Untitled"})에 댓글을 남겼습니다.`);
+  const title = item.title || item.programName || "Untitled";
+  if (editId) {
+    resetReactionCommentComposer();
+  } else {
+    await notifyPostRecipients(item, "댓글 알림", `${getProfileName()}님이 게시물(${title})에 댓글을 남겼습니다.`);
+  }
   clearGrid();
   renderNextPage();
+  if (activeReactionPostId === postId) {
+    renderReactionsModal(postId);
+    openAnimatedModal(likesModal);
+  }
+}
+
+function startEditComment(commentId) {
+  if (!activeReactionPostId || !currentUser) return;
+  const item = allItems.find((row) => row.id === activeReactionPostId);
+  const comment = item?.comments?.find((row) => row.id === commentId);
+  if (!comment) return alert("댓글을 찾지 못했습니다.");
+  if (comment.uid !== currentUser.uid) return alert("본인 댓글만 수정할 수 있습니다.");
+  activeReactionEditCommentId = commentId;
+  if (reactionsCommentInput) {
+    reactionsCommentInput.value = comment.text || "";
+    reactionsCommentInput.placeholder = "댓글 수정";
+    reactionsCommentInput.focus();
+  }
+  if (reactionsCommentSubmitBtn) {
+    reactionsCommentSubmitBtn.textContent = "수정";
+  }
+  if (reactionsCommentCancelBtn) {
+    reactionsCommentCancelBtn.hidden = false;
+  }
+}
+
+async function deleteComment(postId, commentId) {
+  if (!currentUser) {
+    location.href = "./login.html";
+    return;
+  }
+  const item = allItems.find((row) => row.id === postId);
+  if (!item) return;
+  const comments = Array.isArray(item.comments) ? [...item.comments] : [];
+  const target = comments.find((comment) => comment.id === commentId);
+  if (!target) return alert("삭제할 댓글을 찾지 못했습니다.");
+  if (target.uid !== currentUser.uid) return alert("본인 댓글만 삭제할 수 있습니다.");
+  if (!confirm("이 댓글을 삭제할까요?")) return;
+  const nextComments = comments.filter((comment) => comment.id !== commentId);
+  await updateDoc(doc(db, "posts", postId), {
+    comments: nextComments,
+    commentsCount: nextComments.length,
+    updatedAt: serverTimestamp(),
+  });
+  item.comments = nextComments;
+  if (activeReactionEditCommentId === commentId) {
+    resetReactionCommentComposer();
+  }
+  clearGrid();
+  renderNextPage();
+  if (activeReactionPostId === postId) {
+    renderReactionsModal(postId);
+    openAnimatedModal(likesModal);
+  }
 }
 
 function createParticipantKey(a, b) {
@@ -1114,12 +1262,12 @@ function openMemberPicker(mode, item = null) {
   memberPickerTitle.textContent = mode === "forward" ? "Forward 받을 회원 선택" : "대화할 회원 선택";
   memberPickerSearchInput.value = "";
   renderMemberPicker();
-  memberPickerModal.hidden = false;
+  openAnimatedModal(memberPickerModal);
   memberPickerSearchInput.focus();
 }
 
 function closeMemberPicker() {
-  memberPickerModal.hidden = true;
+  closeAnimatedModal(memberPickerModal);
 }
 
 async function handleMemberPicked(uid) {
@@ -1170,7 +1318,7 @@ async function openDirectMessageCenter(peerUid = "") {
     return;
   }
   await loadDirectThreads();
-  directMessageModal.hidden = false;
+  openAnimatedModal(directMessageModal);
   if (peerUid) {
     const thread = await ensureDirectThread(peerUid);
     if (thread) await openThread(thread.id);
@@ -1206,9 +1354,12 @@ function applyFilter() {
 function setupFilterUI() {
   applyFilterBtn?.addEventListener("click", applyFilter);
   filterSelect?.addEventListener("change", applyFilter);
-  searchInput?.addEventListener("focus", () => renderMemberSearchResults());
-  searchInput?.addEventListener("click", () => renderMemberSearchResults());
+  searchInput?.addEventListener("click", () => {
+    showMemberSearchPanel();
+    renderMemberSearchResults();
+  });
   searchInput?.addEventListener("input", () => {
+    showMemberSearchPanel();
     renderMemberSearchResults();
   });
   searchInput?.addEventListener("keydown", (e) => {
@@ -1238,10 +1389,10 @@ function setupFilterUI() {
 function setupNotificationUI() {
   notificationBtn?.addEventListener("click", async () => {
     await loadNotifications();
-    if (notificationModal) notificationModal.hidden = false;
+    openAnimatedModal(notificationModal);
   });
   closeNotificationBtn?.addEventListener("click", () => {
-    if (notificationModal) notificationModal.hidden = true;
+    closeAnimatedModal(notificationModal);
   });
   markAllNotificationsReadBtn?.addEventListener("click", async () => {
     try {
@@ -1263,7 +1414,7 @@ function setupNotificationUI() {
     }
   });
   notificationModal?.addEventListener("click", (e) => {
-    if (e.target === notificationModal) notificationModal.hidden = true;
+    if (e.target === notificationModal) closeAnimatedModal(notificationModal);
   });
 }
 
@@ -1272,10 +1423,10 @@ function setupDirectMessageUI() {
     await openDirectMessageCenter();
   });
   closeDirectMessageBtn?.addEventListener("click", () => {
-    directMessageModal.hidden = true;
+    closeAnimatedModal(directMessageModal);
   });
   directMessageModal?.addEventListener("click", (e) => {
-    if (e.target === directMessageModal) directMessageModal.hidden = true;
+    if (e.target === directMessageModal) closeAnimatedModal(directMessageModal);
   });
   newDmBtn?.addEventListener("click", () => openMemberPicker("chat"));
   directThreadList?.addEventListener("click", async (event) => {
@@ -1310,6 +1461,22 @@ function setupDirectMessageUI() {
 
   closeMemberPickerBtn?.addEventListener("click", closeMemberPicker);
   closeLikesModalBtn?.addEventListener("click", closeLikesModal);
+  reactionsCommentCancelBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    resetReactionCommentComposer();
+  });
+  reactionsCommentSubmitBtn?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    if (!reactionsCommentSubmitBtn.dataset.commentPost) return;
+    await addComment(reactionsCommentSubmitBtn.dataset.commentPost);
+  });
+  reactionsCommentInput?.addEventListener("keydown", async (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (!reactionsCommentSubmitBtn?.dataset.commentPost) return;
+      await addComment(reactionsCommentSubmitBtn.dataset.commentPost);
+    }
+  });
   document.getElementById("closeEventDayModalBtn")?.addEventListener("click", closeEventDayModal);
   eventDayModal?.addEventListener("click", (e) => {
     if (e.target === eventDayModal) closeEventDayModal();
@@ -1326,11 +1493,28 @@ function setupDirectMessageUI() {
   memberPickerModal?.addEventListener("click", (e) => {
     if (e.target === memberPickerModal) closeMemberPicker();
   });
+  likesModal?.addEventListener("click", (e) => {
+    if (e.target === likesModal) closeLikesModal();
+  });
   memberPickerSearchInput?.addEventListener("input", renderMemberPicker);
   memberPickerList?.addEventListener("click", async (event) => {
     const row = event.target.closest("[data-picker-uid]");
     if (!row) return;
     await handleMemberPicked(row.dataset.pickerUid);
+  });
+  reactionsCommentList?.addEventListener("click", async (event) => {
+    const editBtn = event.target.closest("[data-edit-comment]");
+    if (editBtn) {
+      event.stopPropagation();
+      startEditComment(editBtn.dataset.editComment);
+      return;
+    }
+    const deleteBtn = event.target.closest("[data-delete-comment]");
+    if (deleteBtn) {
+      event.stopPropagation();
+      if (!activeReactionPostId) return;
+      await deleteComment(activeReactionPostId, deleteBtn.dataset.deleteComment);
+    }
   });
 }
 
@@ -1350,19 +1534,10 @@ function setupCardActions() {
       return;
     }
 
-    const likesListBtn = event.target.closest("[data-show-likes]");
-    if (likesListBtn) {
+    const reactionsBtn = event.target.closest("[data-show-reactions]");
+    if (reactionsBtn) {
       event.stopPropagation();
-      openLikesModal(likesListBtn.dataset.showLikes);
-      return;
-    }
-
-    const toggleBtn = event.target.closest("[data-toggle-comments]");
-    if (toggleBtn) {
-      event.stopPropagation();
-      const card = event.target.closest(".card");
-      const panel = card?.querySelector(".comment-panel");
-      if (panel) panel.hidden = !panel.hidden;
+      openLikesModal(reactionsBtn.dataset.showReactions);
       return;
     }
 
