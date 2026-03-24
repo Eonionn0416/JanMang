@@ -88,7 +88,7 @@ function buildPostCard(item, index = 0) {
   card.style.setProperty("--enter-delay", `${index * 45}ms`);
   const title = escapeHtml(item.title || item.programName || "Untitled");
   const body = escapeHtml(item.body || item.description || "").replaceAll("\n", "<br/>");
-  const updated = formatDate(item.updatedAt || item.createdAt);
+  const uploaded = formatDate(item.createdAt || item.updatedAt);
   const badgeText = escapeHtml(statusLabel(item.status, item.type));
   const author = escapeHtml(item.createdByName || item.createdByEmail || "—");
   const imageUrl = item.imageUrl || item.attachmentUrl || "";
@@ -101,7 +101,7 @@ function buildPostCard(item, index = 0) {
       <div class="card-title">${title}</div>
       <span class="badge">${badgeText}</span>
     </div>
-    <div class="card-meta">Updated: ${updated}</div>
+    <div class="card-meta">Upload: ${uploaded}</div>
     <div class="card-meta">Writer: ${author}</div>
     <div class="card-body">${body || "설명이 없습니다."}</div>
   `;
@@ -153,8 +153,14 @@ async function loadPostsFor(uid) {
   if (!grid) return;
   showPostsSkeleton();
   try {
-    const qs = await getDocs(query(collection(db, "posts"), orderBy("updatedAt", "desc")));
-    const rows = qs.docs.map((snap) => ({ id: snap.id, ...snap.data() })).filter((item) => {
+    const qs = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
+    const rows = qs.docs.map((snap) => ({ id: snap.id, ...snap.data() }))
+      .sort((a, b) => {
+        const aMs = a?.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+        const bMs = b?.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+        return bMs - aMs;
+      })
+      .filter((item) => {
       const assigned = Array.isArray(item.assignedDeveloperUids) ? item.assignedDeveloperUids : [];
       return item.createdBy === uid || assigned.includes(uid);
     }).slice(0, PROFILE_POST_PAGE_SIZE);
