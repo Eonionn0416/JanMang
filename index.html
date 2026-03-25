@@ -14,12 +14,23 @@
 
     <div class="top-right">
       <div class="filter">
-        <label class="sr-only" for="filterSelect">Filter</label>
-        <select id="filterSelect">
-          <option value="all">전체</option>
-          <option value="request">Request</option>
-          <option value="event">Event</option>
-        </select>
+        <div class="filter-dropdown" id="filterDropdown">
+          <label class="sr-only" for="filterSelect">Filter</label>
+          <select id="filterSelect" class="filter-native" aria-hidden="true" tabindex="-1">
+            <option value="all">전체</option>
+            <option value="request">Request</option>
+            <option value="event">Event</option>
+          </select>
+          <button id="filterDropdownBtn" class="filter-dropdown-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span id="filterDropdownLabel">전체</span>
+            <span class="filter-dropdown-arrow" aria-hidden="true"></span>
+          </button>
+          <div id="filterDropdownPanel" class="filter-dropdown-panel" hidden>
+            <button class="filter-option is-active" type="button" data-filter-value="all">전체</button>
+            <button class="filter-option" type="button" data-filter-value="request">Request</button>
+            <button class="filter-option" type="button" data-filter-value="event">Event</button>
+          </div>
+        </div>
 
         <div class="search-stack">
           <input id="searchInput" type="text" placeholder="검색어" autocomplete="off" />

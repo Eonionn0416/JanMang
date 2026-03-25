@@ -18,6 +18,10 @@ import {
 const cardsGrid = document.getElementById("cardsGrid");
 const sentinel = document.getElementById("sentinel");
 const filterSelect = document.getElementById("filterSelect");
+const filterDropdown = document.getElementById("filterDropdown");
+const filterDropdownBtn = document.getElementById("filterDropdownBtn");
+const filterDropdownLabel = document.getElementById("filterDropdownLabel");
+const filterDropdownPanel = document.getElementById("filterDropdownPanel");
 const searchInput = document.getElementById("searchInput");
 const applyFilterBtn = document.getElementById("applyFilterBtn");
 const memberSearchPanel = document.getElementById("memberSearchPanel");
@@ -156,6 +160,46 @@ function toggleFavoriteMember(uid) {
   if (next.has(uid)) next.delete(uid); else next.add(uid);
   setFavoriteMembers([...next]);
   renderMemberSearchResults();
+}
+
+
+function syncFilterDropdownUI() {
+  const value = filterSelect?.value || "all";
+  const activeOption = filterDropdownPanel?.querySelector(`[data-filter-value="${value}"]`);
+  if (filterDropdownLabel) {
+    filterDropdownLabel.textContent = activeOption?.textContent?.trim() || filterSelect?.selectedOptions?.[0]?.textContent || "전체";
+  }
+  filterDropdownPanel?.querySelectorAll(".filter-option").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.filterValue === value);
+  });
+}
+
+function openFilterDropdown() {
+  if (!filterDropdown || !filterDropdownPanel) return;
+  filterDropdownPanel.hidden = false;
+  requestAnimationFrame(() => {
+    filterDropdown.classList.add("is-open");
+    filterDropdownPanel.classList.add("is-open");
+    filterDropdownPanel.classList.remove("is-closing");
+    filterDropdownBtn?.setAttribute("aria-expanded", "true");
+  });
+}
+
+function closeFilterDropdown() {
+  if (!filterDropdown || !filterDropdownPanel || filterDropdownPanel.hidden) return;
+  filterDropdown.classList.remove("is-open");
+  filterDropdownPanel.classList.remove("is-open");
+  filterDropdownPanel.classList.add("is-closing");
+  filterDropdownBtn?.setAttribute("aria-expanded", "false");
+  window.setTimeout(() => {
+    filterDropdownPanel.hidden = true;
+    filterDropdownPanel.classList.remove("is-closing");
+  }, 180);
+}
+
+function toggleFilterDropdown() {
+  if (filterDropdownPanel?.hidden) openFilterDropdown();
+  else closeFilterDropdown();
 }
 
 function getFilteredItems() {
@@ -1347,14 +1391,38 @@ function setupInfiniteScroll() {
 
 function applyFilter() {
   hideMemberSearchPanel();
+  cardsGrid?.classList.add("is-filtering");
   clearGrid();
   renderNextPage();
+  window.setTimeout(() => cardsGrid?.classList.remove("is-filtering"), 220);
 }
 
 function setupFilterUI() {
+  syncFilterDropdownUI();
+
   applyFilterBtn?.addEventListener("click", applyFilter);
-  filterSelect?.addEventListener("change", applyFilter);
+  filterSelect?.addEventListener("change", () => {
+    syncFilterDropdownUI();
+    applyFilter();
+  });
+  filterDropdownBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleFilterDropdown();
+  });
+  filterDropdownPanel?.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-filter-value]");
+    if (!option || !filterSelect) return;
+    const nextValue = option.dataset.filterValue || "all";
+    if (filterSelect.value !== nextValue) {
+      filterSelect.value = nextValue;
+      filterSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      syncFilterDropdownUI();
+    }
+    closeFilterDropdown();
+  });
   searchInput?.addEventListener("click", () => {
+    closeFilterDropdown();
     showMemberSearchPanel();
     renderMemberSearchResults();
   });
@@ -1371,6 +1439,14 @@ function setupFilterUI() {
 
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".search-stack")) hideMemberSearchPanel();
+    if (!event.target.closest(".filter-dropdown")) closeFilterDropdown();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      hideMemberSearchPanel();
+      closeFilterDropdown();
+    }
   });
 
   memberSearchList?.addEventListener("click", (event) => {

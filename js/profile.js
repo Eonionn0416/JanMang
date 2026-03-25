@@ -49,6 +49,106 @@ function statusLabel(status, type) {
   return status;
 }
 
+const TIER_RULES = [
+  { code: "QFN", label: "Sign in~6개월" },
+  { code: "LGA", label: "7개월~12개월" },
+  { code: "FCCSP", label: "13개월~18개월" },
+  { code: "POP", label: "19개월~24개월" },
+  { code: "MCM", label: "25개월~30개월" },
+  { code: "2.5D", label: "31개월~" },
+];
+const BASE_SEASON_START = new Date(2026, 2, 1);
+
+function startOfDay(dateLike) {
+  const d = new Date(dateLike);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function calcSeasonIndex(dateLike = new Date()) {
+  const d = startOfDay(dateLike);
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+
+  let seasonYear = y;
+  let seasonInYear = 1;
+
+  if (m >= 3 && m <= 8) {
+    seasonInYear = 1;
+  } else {
+    seasonInYear = 2;
+    if (m === 1 || m === 2) seasonYear = y - 1;
+  }
+
+  return Math.max(1, ((seasonYear - 2026) * 2) + seasonInYear);
+}
+
+function getSeasonStartByIndex(seasonIndex) {
+  const idx = Math.max(1, Number(seasonIndex) || 1);
+  const start = new Date(BASE_SEASON_START);
+  start.setMonth(start.getMonth() + ((idx - 1) * 6));
+  return startOfDay(start);
+}
+
+function getSeasonEndByIndex(seasonIndex) {
+  const start = getSeasonStartByIndex(seasonIndex);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 6);
+  return startOfDay(end);
+}
+
+function formatSeasonLabel(seasonIndex) {
+  const idx = Math.max(1, Number(seasonIndex) || 1);
+  const start = getSeasonStartByIndex(idx);
+  const end = new Date(getSeasonEndByIndex(idx).getTime() - 86400000);
+  return `시즌 ${idx} (${start.getFullYear()}.${String(start.getMonth() + 1).padStart(2, "0")}~${end.getFullYear()}.${String(end.getMonth() + 1).padStart(2, "0")})`;
+}
+
+function toDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === "function") return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function renderTierSummary(currentTier = "QFN") {
+  const tier = TIER_RULES.some((row) => row.code === currentTier) ? currentTier : "QFN";
+  return `
+    <div class="profile-tier-stack">
+      <div class="profile-current-line">현재 등급: <strong>${escapeHtml(tier)}</strong></div>
+      <div class="profile-tier-list">
+        ${TIER_RULES.map((row) => `
+          <div class="profile-tier-item ${row.code === tier ? "is-active" : ""}">
+            <span>${escapeHtml(row.label)}</span>
+            <span>${escapeHtml(row.code)}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderSeasonSummary(user = {}) {
+  const currentSeasonIndex = Math.max(1, Number(user.seasonIndex) || 1);
+  const createdSeasonIndex = Math.max(1, Number(user.createdSeasonIndex) || calcSeasonIndex(toDate(user.createdAt) || new Date()));
+  const seasonItems = [];
+  for (let idx = createdSeasonIndex; idx <= currentSeasonIndex; idx += 1) seasonItems.push(idx);
+  const totalSeasons = seasonItems.length || 1;
+
+  return `
+    <div class="profile-season-stack">
+      <div class="profile-current-line">현재 시즌: <strong>${escapeHtml(formatSeasonLabel(currentSeasonIndex))}</strong></div>
+      <div class="profile-subline">누적 시즌: ${totalSeasons}개</div>
+      <div class="profile-season-chip-list">
+        ${seasonItems.map((idx) => `
+          <span class="profile-season-chip ${idx === currentSeasonIndex ? "is-active" : ""}">${escapeHtml(formatSeasonLabel(idx))}</span>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 let currentUid = null;
 let viewingUid = null;
 let isReadonlyView = false;
@@ -200,8 +300,8 @@ async function loadProfile(uid) {
   $("pName").value = u.name || "";
   $("pRank").value = u.rank || "";
   $("pRole").textContent = roleLabel(u.role || "member");
-  $("pTier").textContent = u.tier || "QFN";
-  $("pSeason").textContent = String(u.seasonIndex ?? 0);
+  $("pTier").innerHTML = renderTierSummary(u.tier || "QFN");
+  $("pSeason").innerHTML = renderSeasonSummary(u);
 
   const adminBtn = $("adminBtn");
   if (adminBtn) {
