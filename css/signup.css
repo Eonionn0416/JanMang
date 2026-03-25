@@ -41,3 +41,64 @@
 }
 
 .actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+
+body{
+  animation: pageFadeIn .42s ease both;
+}
+
+.page{
+  animation: pageRiseIn .5s cubic-bezier(.22,1,.36,1) both;
+}
+
+.toprow{
+  animation: sectionRiseIn .46s cubic-bezier(.22,1,.36,1) both;
+}
+
+.panel{
+  animation: panelRiseIn .58s cubic-bezier(.22,1,.36,1) .04s both;
+  transform-origin: top center;
+}
+
+.row,
+.actions,
+#signupMsg{
+  animation: sectionRiseIn .48s cubic-bezier(.22,1,.36,1) both;
+}
+
+.row:nth-of-type(1){ animation-delay:.06s; }
+.row:nth-of-type(2){ animation-delay:.08s; }
+.row:nth-of-type(3){ animation-delay:.1s; }
+.row:nth-of-type(4){ animation-delay:.12s; }
+.row:nth-of-type(5){ animation-delay:.14s; }
+.row:nth-of-type(6){ animation-delay:.16s; }
+.row:nth-of-type(7){ animation-delay:.18s; }
+.row:nth-of-type(8){ animation-delay:.2s; }
+.row:nth-of-type(9){ animation-delay:.22s; }
+.actions{ animation-delay:.26s; }
+#signupMsg{ animation-delay:.3s; }
+
+@keyframes pageFadeIn{
+  from{ opacity:0; }
+  to{ opacity:1; }
+}
+
+@keyframes pageRiseIn{
+  from{ opacity:0; transform:translateY(14px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+@keyframes panelRiseIn{
+  from{ opacity:0; transform:translateY(18px) scale(.985); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+@keyframes sectionRiseIn{
+  from{ opacity:0; transform:translateY(10px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  body, .page, .toprow, .panel, .row, .actions, #signupMsg{
+    animation:none !important;
+  }
+}

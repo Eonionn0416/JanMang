@@ -201,6 +201,11 @@ $("loginBtn")?.addEventListener("click", async () => {
     msg("✅ 로그인 성공! feed로 이동");
     location.href = "./index.html";
   } catch (e) {
-    msg(`❌ 로그인 실패: ${e.code || e.message}`);
+    const code = e?.code || "";
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
+      msg("❌ Password 를 재확인 해줍쇼");
+      return;
+    }
+    msg(`❌ 로그인 실패: ${code || e.message}`);
   }
 });
