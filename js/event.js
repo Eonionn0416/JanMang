@@ -222,10 +222,21 @@ async function confirmEventGuideModal() {
 }
 
 async function loadUsers() {
-  const qs = await getDocs(collection(db, "users"));
-  allUsers = qs.docs.map((snap) => ({ uid: snap.id, ...snap.data() }))
-    .sort((a, b) => String(a.name || a.email || "").localeCompare(String(b.name || b.email || ""), "ko"));
-  renderAttendeeResults();
+  try {
+    const qs = await getDocs(collection(db, "users"));
+    allUsers = qs.docs.map((snap) => ({ uid: snap.id, ...snap.data() }))
+      .sort((a, b) => String(a.name || a.email || "").localeCompare(String(b.name || b.email || ""), "ko"));
+    renderAttendeeResults();
+  } catch (error) {
+    console.error("event user load error:", error);
+    allUsers = [];
+    renderAttendeeResults();
+    if (error?.code === "permission-denied") {
+      msg("❌ Attendees 목록 조회 권한이 없습니다. Firestore Rules 에서 users read 권한 확인 필요", true);
+      return;
+    }
+    msg("❌ Attendees 목록을 불러오지 못했습니다.", true);
+  }
 }
 
 function getAttendeeRows() {
@@ -238,16 +249,39 @@ function getAttendeeRows() {
   });
 }
 
-function renderAttendeeResults() {
+function showAttendeePanel() {
+  const panel = $("eventAttendeePanel");
+  if (!panel) return;
+  panel.hidden = false;
+  panel.classList.remove("is-closing");
+  requestAnimationFrame(() => panel.classList.add("is-open"));
+}
+
+function hideAttendeePanel() {
+  const panel = $("eventAttendeePanel");
+  if (!panel) return;
+  panel.classList.remove("is-open");
+  panel.classList.add("is-closing");
+  window.setTimeout(() => {
+    if (!panel.classList.contains("is-open")) {
+      panel.hidden = true;
+      panel.classList.remove("is-closing");
+    }
+  }, 180);
+}
+
+function renderAttendeeResults(forceOpen = false) {
   const panel = $("eventAttendeePanel");
   const list = $("eventAttendeeList");
-  if (!panel || !list) return;
+  const searchInput = $("eventAttendeeSearch");
+  if (!panel || !list || !searchInput) return;
   const rows = getAttendeeRows();
-  if (document.activeElement !== $("eventAttendeeSearch")) {
-    panel.hidden = true;
+  const shouldOpen = forceOpen || document.activeElement === searchInput;
+  if (!shouldOpen) {
+    hideAttendeePanel();
     return;
   }
-  panel.hidden = false;
+  showAttendeePanel();
   list.innerHTML = rows.length ? rows.map((user) => `
     <button class="member-search-item" type="button" data-pick-uid="${escapeHtml(user.uid)}">
       <div class="member-star is-favorite">+</div>
@@ -349,7 +383,20 @@ async function submitEvent() {
       updatedAt: serverTimestamp(),
     };
 
-    await addDoc(collection(db, "posts"), postData);
+    const postRef = await addDoc(collection(db, "posts"), postData);
+
+    const uniqueAttendees = attendees.filter((row, index, arr) => row.uid && arr.findIndex((x) => x.uid === row.uid) === index);
+    await Promise.all(uniqueAttendees.map((row) => addDoc(collection(db, "notifications"), {
+      toUid: row.uid,
+      type: "event",
+      title: "새 Event 참석 알림",
+      body: `${profile.name || user.email || "관리자"}님이 회원님을 Event 참석자로 지정했습니다.`,
+      postId: postRef.id,
+      read: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })));
+
     msg("✅ Event 업로드 완료");
     setTimeout(() => {
       location.href = "./index.html";
@@ -374,8 +421,20 @@ async function initializeEventGuide() {
 function bindEvents() {
   $("eventImage")?.addEventListener("change", () => renderFilePreview("eventImage", "eventImagePreview"));
   $("eventAttachment")?.addEventListener("change", () => renderFilePreview("eventAttachment", "eventAttachmentPreview"));
-  $("eventAttendeeSearch")?.addEventListener("focus", renderAttendeeResults);
-  $("eventAttendeeSearch")?.addEventListener("input", renderAttendeeResults);
+  $("eventAttendeeSearch")?.addEventListener("focus", () => renderAttendeeResults(true));
+  $("eventAttendeeSearch")?.addEventListener("input", () => renderAttendeeResults(true));
+  $("eventAttendeePanel")?.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+  });
+  $("eventAttendeePanel")?.addEventListener("click", () => {
+    $("eventAttendeeSearch")?.focus();
+    renderAttendeeResults(true);
+  });
+  document.querySelector(".attendee-picker")?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-pick-uid]")) return;
+    $("eventAttendeeSearch")?.focus();
+    renderAttendeeResults(true);
+  });
   $("eventForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
     submitEvent();
@@ -398,9 +457,9 @@ function bindEvents() {
       if (user) {
         selectedAttendeeMap.set(user.uid, user);
         renderSelectedAttendees();
-        renderAttendeeResults();
         $("eventAttendeeSearch").value = "";
         $("eventAttendeeSearch").focus();
+        renderAttendeeResults(true);
       }
       return;
     }
@@ -409,12 +468,12 @@ function bindEvents() {
     if (removeBtn) {
       selectedAttendeeMap.delete(removeBtn.dataset.removeUid);
       renderSelectedAttendees();
-      renderAttendeeResults();
+      renderAttendeeResults(true);
       return;
     }
 
     if (!event.target.closest(".attendee-picker")) {
-      $("eventAttendeePanel").hidden = true;
+      hideAttendeePanel();
     }
   });
 

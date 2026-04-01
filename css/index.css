@@ -864,7 +864,21 @@
 .selected-member-link{ text-decoration:none; color:inherit; }
 .chip-remove-btn{ border:0; background:transparent; cursor:pointer; font-size:16px; line-height:1; }
 .attendee-picker{ position:relative; }
-.attendee-panel{ position:static; width:100%; max-height:260px; margin-top:8px; }
+.attendee-panel{
+  position:static;
+  width:100%;
+  max-height:260px;
+  margin-top:8px;
+  display:flex;
+  flex-direction:column;
+}
+.attendee-panel .member-search-list{
+  flex:1;
+  min-height:0;
+  max-height:none;
+  overflow:auto;
+  padding-bottom:8px;
+}
 .detail-box{ line-height:1.6; }
 
 

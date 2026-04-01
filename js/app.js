@@ -957,8 +957,8 @@ async function addComment(postId) {
     return;
   }
   const input = document.querySelector(`[data-comment-input="${postId}"]`);
-  const text = input?.value.trim() || "";
-  if (!text) return alert("댓글을 입력해 주세요.");
+  const commentText = input?.value.trim() || "";
+  if (!commentText) return alert("댓글을 입력해 주세요.");
 
   const item = allItems.find((row) => row.id === postId);
   if (!item) return;
@@ -973,23 +973,34 @@ async function addComment(postId) {
       return alert("수정할 댓글을 찾지 못했습니다.");
     }
     if (target.uid !== currentUser.uid) return alert("본인 댓글만 수정할 수 있습니다.");
-    target.text = text;
+    target.text = commentText;
     target.updatedAt = nowIso;
   } else {
     comments.push({
       id: `${Date.now()}`,
       uid: currentUser.uid,
       name: getProfileName(),
-      text,
+      text: commentText,
       createdAt: nowIso,
     });
   }
 
-  await updateDoc(doc(db, "posts", postId), {
-    comments,
-    commentsCount: comments.length,
-    updatedAt: serverTimestamp(),
-  });
+  try {
+    await updateDoc(doc(db, "posts", postId), {
+      comments,
+      commentsCount: comments.length,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("comment save error:", error);
+    if (error?.code === "permission-denied") {
+      alert("관리자 외 회원 댓글 권한이 Firestore Rules 에서 막혀 있습니다. rules 수정이 필요합니다.");
+      return;
+    }
+    alert(error?.message || "댓글 저장에 실패했습니다.");
+    return;
+  }
+
   item.comments = comments;
   const title = item.title || item.programName || "Untitled";
   if (editId) {
