@@ -1,0 +1,104 @@
+@import url("./common.css");
+
+.page{ padding: 24px; max-width: 980px; margin: 0 auto; }
+
+.toprow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom: 12px;
+}
+
+/* ✅ title 동그라미/테두리 제거 */
+.titletext{
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.panel{
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  min-height: 520px;
+}
+
+.hint{ margin-top: 10px; opacity: .8; font-size: 14px; }
+
+.row{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.row label{ font-weight:700; font-size:14px; opacity:.9; }
+
+.pwwrap{ position:relative; width:100%; }
+.eye{
+  position:absolute; right: 10px; top:50%; transform: translateY(-50%);
+  height: 30px; width: 42px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background:#fff;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+
+body{
+  animation: pageFadeIn .42s ease both;
+}
+
+.page{
+  animation: pageRiseIn .5s cubic-bezier(.22,1,.36,1) both;
+}
+
+.toprow{
+  animation: sectionRiseIn .46s cubic-bezier(.22,1,.36,1) both;
+}
+
+.panel{
+  animation: panelRiseIn .58s cubic-bezier(.22,1,.36,1) .04s both;
+  transform-origin: top center;
+}
+
+.row,
+.actions,
+#signupMsg{
+  animation: sectionRiseIn .48s cubic-bezier(.22,1,.36,1) both;
+}
+
+.row:nth-of-type(1){ animation-delay:.06s; }
+.row:nth-of-type(2){ animation-delay:.08s; }
+.row:nth-of-type(3){ animation-delay:.1s; }
+.row:nth-of-type(4){ animation-delay:.12s; }
+.row:nth-of-type(5){ animation-delay:.14s; }
+.row:nth-of-type(6){ animation-delay:.16s; }
+.row:nth-of-type(7){ animation-delay:.18s; }
+.row:nth-of-type(8){ animation-delay:.2s; }
+.row:nth-of-type(9){ animation-delay:.22s; }
+.actions{ animation-delay:.26s; }
+#signupMsg{ animation-delay:.3s; }
+
+@keyframes pageFadeIn{
+  from{ opacity:0; }
+  to{ opacity:1; }
+}
+
+@keyframes pageRiseIn{
+  from{ opacity:0; transform:translateY(14px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+@keyframes panelRiseIn{
+  from{ opacity:0; transform:translateY(18px) scale(.985); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+@keyframes sectionRiseIn{
+  from{ opacity:0; transform:translateY(10px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  body, .page, .toprow, .panel, .row, .actions, #signupMsg{
+    animation:none !important;
+  }
+}
