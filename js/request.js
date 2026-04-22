@@ -157,7 +157,7 @@ function renderSelectedFileList(files, previewId, emptyText = "No file selected"
         <span class="attachment-chip">${escapeHtml(safeName(file.name))}</span>
         <span class="file-selection-meta">${escapeHtml(formatFileSize(file.size || 0))}</span>
       </div>
-      <button type="button" class="file-selection-remove" data-remove-target="${previewId}" data-remove-index="${index}" aria-label="${escapeHtml(file.name)} 삭제">×</button>
+      <button type="button" class="file-selection-remove" data-remove-target="${previewId}" data-remove-index="${index}" aria-label="${escapeHtml(file.name)} 삭제">삭제</button>
     </div>
   `).join("");
 }
