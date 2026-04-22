@@ -1321,6 +1321,77 @@ body.modal-open{ overflow:hidden; }
 .btn-ghost{ background:#fff; color:#111; border:1px solid var(--border); box-shadow:none; }
 
 
+.meeting-minute-card{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:18px;
+  background:#fff;
+}
+
+.meeting-minute-textarea{
+  width:100%;
+  min-height:140px;
+  padding:14px 16px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  resize:vertical;
+  font:inherit;
+  line-height:1.6;
+  background:#fcfcfc;
+}
+
+.meeting-minute-textarea:focus{
+  outline:none;
+  border-color:#9ab7f4;
+  box-shadow:0 0 0 4px rgba(80, 128, 214, 0.12);
+  background:#fff;
+}
+
+.meeting-minute-list{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.meeting-minute-item{
+  padding:14px 16px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#fff;
+}
+
+.meeting-minute-item-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.meeting-minute-item-title{
+  font-weight:800;
+}
+
+.meeting-minute-item-body,
+.meeting-minute-empty{
+  line-height:1.7;
+  white-space:normal;
+}
+
+.meeting-minute-empty{
+  color:var(--muted);
+}
+
+@media (max-width: 760px){
+  .meeting-minute-item-head{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}
+
 .page-fade{
   opacity:0;
   transform:translateY(10px);
@@ -1562,3 +1633,12 @@ body.profile-is-loading .profile-info-box{
   .profile-info-box{ padding:16px; }
   .profile-row{ grid-template-columns:66px minmax(0,1fr); gap:7px; }
 }
+
+
+.file-selection-list, .image-selection-list{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+.file-selection-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:#fff; }
+.file-selection-main{ min-width:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.file-selection-name{ font-size:13px; font-weight:700; word-break:break-all; }
+.file-selection-meta{ font-size:12px; color:var(--muted); }
+.file-selection-remove{ border:1px solid var(--border); background:#fff; border-radius:999px; min-width:30px; height:30px; cursor:pointer; font-size:16px; line-height:1; }
+.file-selection-remove:hover{ background:#fafafa; }

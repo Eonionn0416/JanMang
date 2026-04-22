@@ -75,6 +75,19 @@
             <div id="detailAttachment" class="detail-box">—</div>
           </div>
 
+          <div class="detail-section">
+            <h3>Meeting Minutes</h3>
+            <div id="meetingMinuteEditor" class="meeting-minute-card" hidden>
+              <label class="meeting-upload-label" for="meetingMinuteText">추가 모임 내용</label>
+              <textarea id="meetingMinuteText" class="meeting-minute-textarea" rows="6" placeholder="추가 모임 이후 논의한 내용, 결정사항, action item 등을 적어주세요."></textarea>
+              <div class="detail-actions meeting-upload-actions">
+                <button id="saveMeetingMinuteBtn" class="btn" type="button">Save Meeting Minute</button>
+              </div>
+              <div class="card-meta">게시자 또는 참석자로 등록된 사람만 저장/삭제할 수 있습니다.</div>
+            </div>
+            <div id="detailMeetingMinutes" class="detail-box" style="margin-top:12px;">—</div>
+          </div>
+
         </article>
       </div>
     </section>

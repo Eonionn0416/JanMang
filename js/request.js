@@ -102,32 +102,64 @@ function safeStem(name = "file") {
 
 function uniq(values = []) { return [...new Set(values.filter(Boolean))]; }
 
-function getFiles(inputId) {
-  return Array.from($(inputId)?.files || []);
+const requestAttachmentFiles = [];
+const requestImageFiles = [];
+
+function formatFileSize(size = 0) {
+  if (!size) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = size;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value >= 100 || unitIndex === 0 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function renderFilePreview(inputId, previewId) {
-  const files = getFiles(inputId);
-  const box = $(previewId);
-  if (!box) return;
-  box.innerHTML = files.map((file) => `<span class="attachment-chip">${safeName(file.name)}</span>`).join("");
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
-function renderImagePreview(inputId, previewId) {
+function appendSelectedFiles(inputId, targetList) {
+  const input = $(inputId);
+  const nextFiles = Array.from(input?.files || []);
+  if (!nextFiles.length) return;
+  nextFiles.forEach((file) => {
+    const key = `${file.name}_${file.size}_${file.lastModified}`;
+    if (!targetList.some((item) => `${item.name}_${item.size}_${item.lastModified}` === key)) {
+      targetList.push(file);
+    }
+  });
+  if (input) input.value = "";
+}
+
+function removeSelectedFile(targetList, index) {
+  if (index < 0 || index >= targetList.length) return;
+  targetList.splice(index, 1);
+}
+
+function renderSelectedFileList(files, previewId, emptyText = "No file selected") {
   const box = $(previewId);
-  const file = getFiles(inputId)[0];
   if (!box) return;
-  if (!file) {
-    box.classList.add("empty");
-    box.innerHTML = "No image selected";
+  if (!files.length) {
+    box.innerHTML = `<div class="card-meta">${escapeHtml(emptyText)}</div>`;
     return;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    box.classList.remove("empty");
-    box.innerHTML = `<img src="${reader.result}" alt="preview">`;
-  };
-  reader.readAsDataURL(file);
+  box.innerHTML = files.map((file, index) => `
+    <div class="file-selection-item">
+      <div class="file-selection-main">
+        <span class="attachment-chip">${escapeHtml(safeName(file.name))}</span>
+        <span class="file-selection-meta">${escapeHtml(formatFileSize(file.size || 0))}</span>
+      </div>
+      <button type="button" class="file-selection-remove" data-remove-target="${previewId}" data-remove-index="${index}" aria-label="${escapeHtml(file.name)} 삭제">×</button>
+    </div>
+  `).join("");
 }
 
 function formatDateParts(date = new Date()) {
@@ -302,8 +334,8 @@ async function submitRequest() {
     const specificRequest = $("specificRequest")?.value.trim() || "";
     const inputForms = getCheckedValues("inputForms");
     const outputForms = getCheckedValues("outputForms");
-    const attachmentFiles = getFiles("requestAttachment");
-    const imageFile = getFiles("requestImage")[0] || null;
+    const attachmentFiles = [...requestAttachmentFiles];
+    const imageFiles = [...requestImageFiles];
 
     if (!programName) throw new Error("Program name을 입력해 주세요.");
     if (inputForms.length === 0) throw new Error("Input file form을 1개 이상 선택해 주세요.");
@@ -313,7 +345,7 @@ async function submitRequest() {
 
     const profile = await getCurrentUserProfile(user.uid);
     const attachments = await uploadAttachments(attachmentFiles, `posts/request/${user.uid}/attachments`, programName);
-    const imageUploads = imageFile ? await uploadAttachments([imageFile], `posts/request/${user.uid}/images`, programName) : [];
+    const imageUploads = await uploadAttachments(imageFiles, `posts/request/${user.uid}/images`, programName);
     const primary = attachments[0] || { name: "", url: "", type: "", size: 0, downloadName: "" };
     const imagePrimary = imageUploads[0] || { url: "" };
 
@@ -335,6 +367,7 @@ async function submitRequest() {
       requestAttachmentDownloadName: primary.downloadName || "",
       requestAttachments: attachments,
       imageUrl: imagePrimary.url || "",
+      requestImages: imageUploads,
       createdBy: user.uid,
       authorUid: user.uid,
       createdByEmail: user.email || profile.email || "",
@@ -388,8 +421,14 @@ async function initializeRequestGuide() {
 }
 
 function bindEvents() {
-  $("requestAttachment")?.addEventListener("change", () => renderFilePreview("requestAttachment", "requestAttachmentPreview"));
-  $("requestImage")?.addEventListener("change", () => renderImagePreview("requestImage", "requestImagePreview"));
+  $("requestAttachment")?.addEventListener("change", () => {
+    appendSelectedFiles("requestAttachment", requestAttachmentFiles);
+    renderSelectedFileList(requestAttachmentFiles, "requestAttachmentPreview", "No attachment selected");
+  });
+  $("requestImage")?.addEventListener("change", () => {
+    appendSelectedFiles("requestImage", requestImageFiles);
+    renderSelectedFileList(requestImageFiles, "requestImagePreview", "No image selected");
+  });
   $("requestForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
     submitRequest();
@@ -397,6 +436,21 @@ function bindEvents() {
   requestGuidePrevBtn?.addEventListener("click", () => moveRequestGuide(-1));
   requestGuideNextBtn?.addEventListener("click", () => moveRequestGuide(1));
   requestGuideConfirmBtn?.addEventListener("click", confirmRequestGuideModal);
+  document.addEventListener("click", (event) => {
+    const removeBtn = event.target.closest("[data-remove-target]");
+    if (removeBtn) {
+      const index = Number(removeBtn.dataset.removeIndex || -1);
+      if (removeBtn.dataset.removeTarget === "requestAttachmentPreview") {
+        removeSelectedFile(requestAttachmentFiles, index);
+        renderSelectedFileList(requestAttachmentFiles, "requestAttachmentPreview", "No attachment selected");
+      }
+      if (removeBtn.dataset.removeTarget === "requestImagePreview") {
+        removeSelectedFile(requestImageFiles, index);
+        renderSelectedFileList(requestImageFiles, "requestImagePreview", "No image selected");
+      }
+      return;
+    }
+  });
   requestGuideThumbs?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-guide-index]");
     if (!button) return;
@@ -413,3 +467,6 @@ function bindEvents() {
 
 bindEvents();
 initializeRequestGuide().catch((error) => console.error("request guide init error:", error));
+
+renderSelectedFileList(requestAttachmentFiles, "requestAttachmentPreview", "No attachment selected");
+renderSelectedFileList(requestImageFiles, "requestImagePreview", "No image selected");

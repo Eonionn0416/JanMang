@@ -246,6 +246,38 @@ function renderMeetingImages(post, updatedAt = null) {
     </div>
   `;
 }
+function normalizeMeetingMinutes(post) {
+  if (Array.isArray(post?.meetingMinutes)) return post.meetingMinutes;
+  return [];
+}
+function canManageMeetingContent(post, user) {
+  return canUploadMeetingImages(post, user);
+}
+function renderMeetingMinutes(post) {
+  const items = normalizeMeetingMinutes(post)
+    .slice()
+    .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime());
+  if (!items.length) {
+    return `<div class="meeting-minute-empty">아직 저장된 meeting minute 가 없습니다.</div>`;
+  }
+  const canManage = canManageMeetingContent(post, currentUser);
+  return `<div class="meeting-minute-list">${items.map((item, index) => {
+    const author = item?.authorName || item?.authorEmail || "작성자";
+    const createdAt = formatDateTime(item?.createdAt);
+    return `
+      <div class="meeting-minute-item">
+        <div class="meeting-minute-item-head">
+          <div>
+            <div class="meeting-minute-item-title">Meeting Minute ${items.length - index}</div>
+            <div class="card-meta">${escapeHtml(author)} · ${escapeHtml(createdAt)}</div>
+          </div>
+          ${canManage ? `<button class="btn btn-ghost" type="button" data-minute-action="delete" data-minute-id="${escapeHtml(item?.id || "")}">Delete</button>` : ""}
+        </div>
+        <div class="meeting-minute-item-body">${escapeHtml(item?.text || "").replaceAll("\n", "<br>") || "—"}</div>
+      </div>
+    `;
+  }).join("")}</div>`;
+}
 function canUploadMeetingImages(post, user) {
   if (!post || !user) return false;
   if (post.createdBy === user.uid) return true;
@@ -305,8 +337,12 @@ async function loadPost() {
   if (detailAttachment) detailAttachment.innerHTML = renderAttachmentList(normalizeAttachments(data), title, data.updatedAt || data.createdAt);
   const detailMeetingImages = $("detailMeetingImages");
   if (detailMeetingImages) detailMeetingImages.innerHTML = renderMeetingImages(data, data.updatedAt || data.createdAt);
+  const detailMeetingMinutes = $("detailMeetingMinutes");
+  if (detailMeetingMinutes) detailMeetingMinutes.innerHTML = renderMeetingMinutes(data);
   const eventProofSection = $("eventProofSection");
   if (eventProofSection) eventProofSection.hidden = !canUploadMeetingImages(data, currentUser);
+  const meetingMinuteEditor = $("meetingMinuteEditor");
+  if (meetingMinuteEditor) meetingMinuteEditor.hidden = !canManageMeetingContent(data, currentUser);
   const deleteBtn = $("deleteEventBtn");
   if (deleteBtn) deleteBtn.hidden = !(currentUser && data.createdBy === currentUser.uid);
   if (currentUser?.uid) markEventRead(postId, currentUser.uid);
@@ -437,6 +473,62 @@ ${target.name || "image"}`)) return;
   }
 }
 
+async function saveMeetingMinute() {
+  const btn = $("saveMeetingMinuteBtn");
+  if (btn) btn.disabled = true;
+  try {
+    msg("");
+    if (!currentUser || !currentPost) throw new Error("로그인이 필요합니다.");
+    if (!canManageMeetingContent(currentPost, currentUser)) throw new Error("게시자 또는 참석자만 저장할 수 있습니다.");
+    const textValue = $("meetingMinuteText")?.value?.trim() || "";
+    if (!textValue) throw new Error("meeting minute 내용을 입력해 주세요.");
+    const items = normalizeMeetingMinutes(currentPost).slice();
+    items.push({
+      id: `minute_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      text: textValue,
+      authorUid: currentUser.uid,
+      authorEmail: currentUser.email || "",
+      authorName: currentUser.displayName || currentPost.createdByName || "",
+      createdAt: new Date().toISOString(),
+    });
+    await updateDoc(doc(db, "posts", currentPost.id), {
+      meetingMinutes: items,
+      updatedAt: serverTimestamp(),
+    });
+    if ($("meetingMinuteText")) $("meetingMinuteText").value = "";
+    await loadPost();
+    msg("✅ meeting minute 저장 완료");
+  } catch (e) {
+    console.error(e);
+    msg(`❌ ${e.message || e.code || "저장 실패"}`, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function deleteMeetingMinute(minuteId) {
+  try {
+    msg("");
+    if (!currentUser || !currentPost) throw new Error("로그인이 필요합니다.");
+    if (!canManageMeetingContent(currentPost, currentUser)) throw new Error("게시자 또는 참석자만 삭제할 수 있습니다.");
+    const items = normalizeMeetingMinutes(currentPost).slice();
+    const target = items.find((item) => item?.id === minuteId);
+    if (!target) throw new Error("meeting minute 를 찾을 수 없습니다.");
+    if (!confirm(`meeting minute 를 삭제할까요?
+${(target.text || "").slice(0, 60)}`)) return;
+    const nextItems = items.filter((item) => item?.id !== minuteId);
+    await updateDoc(doc(db, "posts", currentPost.id), {
+      meetingMinutes: nextItems,
+      updatedAt: serverTimestamp(),
+    });
+    await loadPost();
+    msg("✅ meeting minute 삭제 완료");
+  } catch (e) {
+    console.error(e);
+    msg(`❌ ${e.message || e.code || "삭제 실패"}`, true);
+  }
+}
+
 async function deleteCurrentPost() {
   try {
     msg("");
@@ -454,6 +546,7 @@ async function deleteCurrentPost() {
 function bindEvents() {
   $("eventProofImage")?.addEventListener("change", () => renderFilePreview("eventProofImage", "eventProofPreview"));
   $("saveEventProofBtn")?.addEventListener("click", saveMeetingImages);
+  $("saveMeetingMinuteBtn")?.addEventListener("click", saveMeetingMinute);
   $("deleteEventBtn")?.addEventListener("click", deleteCurrentPost);
   document.addEventListener("click", async (event) => {
     const btn = event.target.closest(".attachment-download-btn");
@@ -475,6 +568,15 @@ function bindEvents() {
       const index = Number(prefBtn.dataset.meetingIndex);
       if (action === "delete") await deleteMeetingImage(index);
       else await setMeetingImagePreference(action, index);
+      return;
+    }
+
+    const minuteBtn = event.target.closest("[data-minute-action]");
+    if (minuteBtn) {
+      event.preventDefault();
+      const action = minuteBtn.dataset.minuteAction;
+      const minuteId = minuteBtn.dataset.minuteId || "";
+      if (action === "delete") await deleteMeetingMinute(minuteId);
       return;
     }
 

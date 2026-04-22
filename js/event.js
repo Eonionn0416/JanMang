@@ -92,7 +92,35 @@ function msg(text, isError = false) {
 
 function safeName(name = "file") { return String(name).replace(/[^a-zA-Z0-9._-]/g, "_"); }
 function safeStem(name = "file") { return safeName(name).replace(/\.[^.]+$/, "") || "file"; }
-function getFiles(id) { return Array.from($(id)?.files || []); }
+const eventImageFiles = [];
+const eventAttachmentFiles = [];
+function formatFileSize(size = 0) {
+  if (!size) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = size;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value >= 100 || unitIndex === 0 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+function appendSelectedFiles(inputId, targetList) {
+  const input = $(inputId);
+  const nextFiles = Array.from(input?.files || []);
+  if (!nextFiles.length) return;
+  nextFiles.forEach((file) => {
+    const key = `${file.name}_${file.size}_${file.lastModified}`;
+    if (!targetList.some((item) => `${item.name}_${item.size}_${item.lastModified}` === key)) {
+      targetList.push(file);
+    }
+  });
+  if (input) input.value = "";
+}
+function removeSelectedFile(targetList, index) {
+  if (index < 0 || index >= targetList.length) return;
+  targetList.splice(index, 1);
+}
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -102,10 +130,22 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#39;");
 }
 
-function renderFilePreview(inputId, previewId) {
+function renderSelectedFileList(files, previewId, emptyText = "No file selected") {
   const box = $(previewId);
   if (!box) return;
-  box.innerHTML = getFiles(inputId).map((file) => `<span class="attachment-chip">${safeName(file.name)}</span>`).join("");
+  if (!files.length) {
+    box.innerHTML = `<div class="card-meta">${escapeHtml(emptyText)}</div>`;
+    return;
+  }
+  box.innerHTML = files.map((file, index) => `
+    <div class="file-selection-item">
+      <div class="file-selection-main">
+        <span class="attachment-chip">${escapeHtml(safeName(file.name))}</span>
+        <span class="file-selection-meta">${escapeHtml(formatFileSize(file.size || 0))}</span>
+      </div>
+      <button type="button" class="file-selection-remove" data-event-remove-target="${previewId}" data-event-remove-index="${index}" aria-label="${escapeHtml(file.name)} 삭제">×</button>
+    </div>
+  `).join("");
 }
 
 function formatDateParts(date = new Date()) {
@@ -333,8 +373,8 @@ async function submitEvent() {
     const eventDate = $("eventDate")?.value || "";
     const eventLocation = $("eventLocation")?.value.trim() || "";
     const description = $("eventDescription")?.value.trim() || "";
-    const imageFiles = getFiles("eventImage");
-    const attachmentFiles = getFiles("eventAttachment");
+    const imageFiles = [...eventImageFiles];
+    const attachmentFiles = [...eventAttachmentFiles];
 
     if (!title) throw new Error("Event title을 입력해 주세요.");
     if (!eventDate) throw new Error("Date / Time을 입력해 주세요.");
@@ -419,8 +459,14 @@ async function initializeEventGuide() {
 }
 
 function bindEvents() {
-  $("eventImage")?.addEventListener("change", () => renderFilePreview("eventImage", "eventImagePreview"));
-  $("eventAttachment")?.addEventListener("change", () => renderFilePreview("eventAttachment", "eventAttachmentPreview"));
+  $("eventImage")?.addEventListener("change", () => {
+    appendSelectedFiles("eventImage", eventImageFiles);
+    renderSelectedFileList(eventImageFiles, "eventImagePreview", "No image selected");
+  });
+  $("eventAttachment")?.addEventListener("change", () => {
+    appendSelectedFiles("eventAttachment", eventAttachmentFiles);
+    renderSelectedFileList(eventAttachmentFiles, "eventAttachmentPreview", "No attachment selected");
+  });
   $("eventAttendeeSearch")?.addEventListener("focus", () => renderAttendeeResults(true));
   $("eventAttendeeSearch")?.addEventListener("input", () => renderAttendeeResults(true));
   $("eventAttendeePanel")?.addEventListener("mousedown", (event) => {
@@ -472,6 +518,20 @@ function bindEvents() {
       return;
     }
 
+    const fileRemoveBtn = event.target.closest("[data-event-remove-target]");
+    if (fileRemoveBtn) {
+      const index = Number(fileRemoveBtn.dataset.eventRemoveIndex || -1);
+      if (fileRemoveBtn.dataset.eventRemoveTarget === "eventImagePreview") {
+        removeSelectedFile(eventImageFiles, index);
+        renderSelectedFileList(eventImageFiles, "eventImagePreview", "No image selected");
+      }
+      if (fileRemoveBtn.dataset.eventRemoveTarget === "eventAttachmentPreview") {
+        removeSelectedFile(eventAttachmentFiles, index);
+        renderSelectedFileList(eventAttachmentFiles, "eventAttachmentPreview", "No attachment selected");
+      }
+      return;
+    }
+
     if (!event.target.closest(".attendee-picker")) {
       hideAttendeePanel();
     }
@@ -488,3 +548,6 @@ bindEvents();
 renderSelectedAttendees();
 loadUsers().catch((e) => console.error("event user load error:", e));
 initializeEventGuide().catch((error) => console.error("event guide init error:", error));
+
+renderSelectedFileList(eventImageFiles, "eventImagePreview", "No image selected");
+renderSelectedFileList(eventAttachmentFiles, "eventAttachmentPreview", "No attachment selected");
